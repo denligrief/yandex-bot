@@ -15,7 +15,9 @@
   --card-front-bg:
     radial-gradient(circle at 92% 12%, rgba(255, 255, 255, .22), transparent 22%),
     linear-gradient(145deg, #16181e, #252932 52%, #111318);
-  --card-image: url("/cards/card-girl-glasses.png");
+  --card-image: url("/cards/image.png");
+  --card-size: cover;
+  --card-position: center;
   --card-back-bg:
     radial-gradient(circle at 20% 18%, rgba(255, 204, 0, .2), transparent 26%),
     linear-gradient(145deg, #111318, #222630 54%, #12141a);
@@ -79,13 +81,17 @@ body[data-app-theme="ice"] {
 }
 
 body[data-card-skin="russia"] {
-  --card-image: url("/cards/card-russia.png");
+  --card-image: url("/cards/image copy 2.png");
+  --card-size: 116% auto;
+  --card-position: center;
   --card-ring: rgba(0, 71, 160, .28);
   --card-glow: rgba(255, 255, 255, .38);
 }
 
 body[data-card-skin="red-mask"] {
-  --card-image: url("/cards/card-red-mask.png");
+  --card-image: url("/cards/image copy 5.png");
+  --card-size: 116% auto;
+  --card-position: center;
   --card-back-bg:
     radial-gradient(circle at 20% 18%, rgba(255, 50, 50, .24), transparent 26%),
     linear-gradient(145deg, #151010, #2b1515 54%, #111318);
@@ -94,13 +100,17 @@ body[data-card-skin="red-mask"] {
 }
 
 body[data-card-skin="samurai"] {
-  --card-image: url("/cards/card-samurai.png");
+  --card-image: url("/cards/image copy 4.png");
+  --card-size: 116% auto;
+  --card-position: center;
   --card-ring: rgba(255, 255, 255, .18);
   --card-glow: rgba(255, 255, 255, .24);
 }
 
 body[data-card-skin="soldier"] {
-  --card-image: url("/cards/card-soldier.png");
+  --card-image: url("/cards/image copy 3.png");
+  --card-size: 116% auto;
+  --card-position: center;
   --card-back-bg:
     radial-gradient(circle at 20% 18%, rgba(120, 140, 82, .24), transparent 26%),
     linear-gradient(145deg, #101410, #202618 54%, #111318);
@@ -109,13 +119,17 @@ body[data-card-skin="soldier"] {
 }
 
 body[data-card-skin="girl-glasses"] {
-  --card-image: url("/cards/card-girl-glasses.png");
+  --card-image: url("/cards/image.png");
+  --card-size: cover;
+  --card-position: center;
   --card-ring: rgba(255, 255, 255, .16);
   --card-glow: rgba(255, 255, 255, .22);
 }
 
 body[data-card-skin="girl-mirror"] {
-  --card-image: url("/cards/card-girl-mirror.png");
+  --card-image: url("/cards/image copy.png");
+  --card-size: cover;
+  --card-position: center 42%;
   --card-ring: rgba(255, 255, 255, .16);
   --card-glow: rgba(255, 255, 255, .22);
 }
@@ -388,7 +402,7 @@ h1 {
 .card-front {
   background:
     linear-gradient(90deg, rgba(8, 9, 12, .72) 0%, rgba(8, 9, 12, .4) 42%, rgba(8, 9, 12, .1) 100%),
-    var(--card-image) center / cover no-repeat,
+    var(--card-image) var(--card-position) / var(--card-size) no-repeat,
     var(--card-front-bg);
 }
 
@@ -653,27 +667,31 @@ h1 {
 }
 
 .skin-preview.russia {
-  background-image: url("/cards/card-russia.png");
+  background-image: url("/cards/image copy 2.png");
+  background-size: 116% auto;
 }
 
 .skin-preview.red-mask {
-  background-image: url("/cards/card-red-mask.png");
+  background-image: url("/cards/image copy 5.png");
+  background-size: 116% auto;
 }
 
 .skin-preview.samurai {
-  background-image: url("/cards/card-samurai.png");
+  background-image: url("/cards/image copy 4.png");
+  background-size: 116% auto;
 }
 
 .skin-preview.soldier {
-  background-image: url("/cards/card-soldier.png");
+  background-image: url("/cards/image copy 3.png");
+  background-size: 116% auto;
 }
 
 .skin-preview.girl-glasses {
-  background-image: url("/cards/card-girl-glasses.png");
+  background-image: url("/cards/image.png");
 }
 
 .skin-preview.girl-mirror {
-  background-image: url("/cards/card-girl-mirror.png");
+  background-image: url("/cards/image copy.png");
 }
 
 .service-stats article {
