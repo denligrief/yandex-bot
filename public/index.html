@@ -26,15 +26,26 @@
         <div class="hero-copy">
           <span class="status-pill">Mini App</span>
           <h1>Зарабатывай на простых действиях</h1>
-          <p>Быстрые задания, понятные награды и баланс всегда под рукой.</p>
+          <p>Быстрые подписки, понятные награды и баланс всегда под рукой.</p>
         </div>
-        <div class="hero-metric">
-          <span>Баланс</span>
-          <strong id="balance">0.00 ₽</strong>
-        </div>
+
+        <article class="balance-card" aria-label="Баланс">
+          <div class="card-row">
+            <span class="card-chip"></span>
+            <span class="card-brand">Subzon Pay</span>
+          </div>
+          <div>
+            <span class="card-label">Доступно</span>
+            <strong id="balance">0.00 ₽</strong>
+          </div>
+          <div class="card-row card-bottom">
+            <span id="cardHolder">GUEST</span>
+            <span>•• 0428</span>
+          </div>
+        </article>
       </section>
 
-      <section class="quick-stats" aria-label="Статистика">
+      <section class="quick-stats" aria-label="Статистика профиля">
         <article class="stat-card">
           <span>Выполнено</span>
           <strong id="completed">0</strong>
@@ -46,6 +57,21 @@
         <article class="stat-card accent">
           <span>Бонус</span>
           <strong>10%</strong>
+        </article>
+      </section>
+
+      <section class="service-stats" aria-label="Статистика сервиса">
+        <article>
+          <span>Сейчас в приложении</span>
+          <strong id="onlineUsers">0</strong>
+        </article>
+        <article>
+          <span>Зашло всего</span>
+          <strong id="totalUsers">0</strong>
+        </article>
+        <article>
+          <span>Уже получили</span>
+          <strong id="totalEarned">0 ₽</strong>
         </article>
       </section>
 

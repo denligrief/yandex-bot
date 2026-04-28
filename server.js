@@ -129,7 +129,8 @@ async function ensureUser(user) {
     memoryStore.users.set(user.user_id, {
       ...current,
       first_name: user.first_name,
-      username: user.username
+      username: user.username,
+      updated_at: Date.now()
     });
 
     return memoryStore.users.get(user.user_id);
@@ -172,6 +173,37 @@ async function getCompletedTaskKeys(userId) {
   );
 
   return new Set(result.rows.map((row) => row.task_key));
+}
+
+async function getServiceStats() {
+  if (!pool) {
+    const now = Date.now();
+    const users = [...memoryStore.users.values()];
+    const online = users.filter((user) => {
+      const updatedAt = user.updated_at || 0;
+      return now - updatedAt < 5 * 60 * 1000;
+    }).length;
+    const totalEarned = users.reduce((sum, user) => sum + Number(user.balance || 0), 0);
+
+    return {
+      online,
+      total_users: users.length,
+      total_earned: totalEarned
+    };
+  }
+
+  const result = await pool.query(`
+    SELECT
+      (SELECT COUNT(*)::int FROM users WHERE updated_at > NOW() - INTERVAL '5 minutes') AS online,
+      (SELECT COUNT(*)::int FROM users) AS total_users,
+      COALESCE((SELECT SUM(reward) FROM completed_tasks), 0)::numeric AS total_earned
+  `);
+
+  return {
+    online: Number(result.rows[0]?.online || 0),
+    total_users: Number(result.rows[0]?.total_users || 0),
+    total_earned: Number(result.rows[0]?.total_earned || 0)
+  };
 }
 
 async function completeTask({ user, taskKey, taskUrl, source, reward }) {
@@ -382,6 +414,14 @@ app.get("/api/profile", async (req, res) => {
     res.json(await getProfile(user));
   } catch (error) {
     res.status(500).json({ error: "Не удалось загрузить профиль", details: error.message });
+  }
+});
+
+app.get("/api/stats", async (req, res) => {
+  try {
+    res.json(await getServiceStats());
+  } catch (error) {
+    res.status(500).json({ error: "Не удалось загрузить статистику", details: error.message });
   }
 });
 

@@ -11,7 +11,12 @@ const state = {
   balance: 0,
   completed: 0,
   tasks: [],
-  checking: new Set()
+  checking: new Set(),
+  stats: {
+    online: 0,
+    total_users: 0,
+    total_earned: 0
+  }
 };
 
 const MIN_WITHDRAW = 50;
@@ -34,6 +39,10 @@ function formatMoney(value, digits = 2) {
   return `${Number(value || 0).toFixed(digits)} ₽`;
 }
 
+function formatNumber(value) {
+  return new Intl.NumberFormat("ru-RU").format(Number(value || 0));
+}
+
 function setText(selector, text) {
   const el = $(selector);
   if (el) el.textContent = text;
@@ -53,12 +62,19 @@ function updateProfileUI() {
   setText("#balanceBig", formatMoney(state.balance));
   setText("#balanceShort", formatMoney(state.balance, state.balance > 9 ? 0 : 2));
   setText("#completed", state.completed);
+  setText("#cardHolder", String(user.first_name || "Guest").toUpperCase());
   setText("#withdrawHint", missing > 0
     ? `До минимального вывода осталось ${formatMoney(missing)}`
     : "Можно отправлять заявку на вывод");
 
   const progressBar = $("#withdrawProgress");
   if (progressBar) progressBar.style.width = `${progress}%`;
+}
+
+function updateStatsUI() {
+  setText("#onlineUsers", formatNumber(state.stats.online));
+  setText("#totalUsers", formatNumber(state.stats.total_users));
+  setText("#totalEarned", formatMoney(state.stats.total_earned));
 }
 
 function createEmptyState(text) {
@@ -80,6 +96,26 @@ async function loadProfile() {
     updateProfileFromData(data);
   } catch (error) {
     tg?.showAlert?.(error.message || "Не удалось загрузить профиль");
+  }
+}
+
+async function loadStats() {
+  try {
+    const res = await fetch("/api/stats");
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось загрузить статистику");
+    }
+
+    state.stats = {
+      online: Number(data.online || 0),
+      total_users: Number(data.total_users || 0),
+      total_earned: Number(data.total_earned || 0)
+    };
+    updateStatsUI();
+  } catch {
+    updateStatsUI();
   }
 }
 
@@ -206,6 +242,7 @@ async function checkTask(task) {
 
     if (data.profile) {
       updateProfileFromData(data.profile);
+      loadStats();
     }
 
     if (data.ok || data.alreadyCompleted) {
@@ -244,5 +281,7 @@ $("#copyRef")?.addEventListener("click", async () => {
 
 setText("#greeting", `${user.first_name || "Гость"}, выбирай подписку`);
 updateProfileUI();
+updateStatsUI();
 loadProfile();
+loadStats();
 loadTasks();
