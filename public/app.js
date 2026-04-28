@@ -33,8 +33,9 @@ const MIN_WITHDRAW = 50;
 const DESIGN_STORAGE_KEY = "subzon-design";
 const DEFAULT_DESIGN = {
   theme: "gold",
-  card: "black"
+  card: "girl-glasses"
 };
+const CARD_SKINS = ["girl-glasses", "girl-mirror", "russia", "red-mask", "samurai", "soldier"];
 const $ = (selector) => document.querySelector(selector);
 const telegramHeaders = tg?.initData
   ? { "X-Telegram-Init-Data": tg.initData }
@@ -67,7 +68,7 @@ function markActiveDesign(selector, activeValue, attribute) {
 
 function applyDesignSettings(settings) {
   const theme = ["gold", "emerald", "ice"].includes(settings.theme) ? settings.theme : DEFAULT_DESIGN.theme;
-  const card = ["black", "gold", "steel"].includes(settings.card) ? settings.card : DEFAULT_DESIGN.card;
+  const card = CARD_SKINS.includes(settings.card) ? settings.card : DEFAULT_DESIGN.card;
 
   document.body.dataset.appTheme = theme;
   document.body.dataset.cardSkin = card;
