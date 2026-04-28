@@ -1,56 +1,41 @@
-# Telegram bot + Mini App в стиле Яндекса
+# Subzon Telegram Mini App
 
-Стек:
+Telegram-бот и Mini App для заданий на подписки. Интерфейс оставлен в темном стиле с желтыми акцентами.
+
+## Стек
+
 - Node.js
 - Express
 - Telegraf
 - Telegram Mini App
-- дизайн в стиле Яндекс: чёрный/тёмный фон, жёлтые акценты, карточки, кнопки
+- SubGram API
+- PostgreSQL через `DATABASE_URL`
 
-## 1. Установка
+## Запуск
 
 ```bash
 npm install
-```
-
-## 2. Настрой `.env`
-
-Скопируй файл:
-
-```bash
-cp .env.example .env
-```
-
-Заполни:
-
-```env
-BOT_TOKEN=токен_бота_из_BotFather
-WEBAPP_URL=https://твой-домен.ru
-SUBGRAM_API_KEY=новый_api_ключ
-PORT=3000
-```
-
-Важно: API-ключ Subgram держи только на сервере. Старый ключ лучше перевыпусти.
-
-## 3. Запуск
-
-```bash
 npm start
 ```
 
-## 4. В BotFather
+## Переменные окружения
 
-`/mybots` → твой бот → Bot Settings → Menu Button → Configure menu button  
-URL: `https://твой-домен.ru`
+Смотри `.env.example`. Для Render обязательно укажи:
 
-## 5. Что уже готово
+```env
+BOT_TOKEN=...
+WEBAPP_URL=https://your-render-url.onrender.com
+SUBGRAM_API_KEY=...
+SUBGRAM_MAX_SPONSORS=10
+SUBGRAM_REWARD=0.25
+DATABASE_URL=...
+DATABASE_SSL=true
+```
 
-- `/start` в боте
-- кнопка «💸 Заработать»
-- Mini App с дизайном
-- главная, задания, баланс, рефералка
-- backend endpoint `/api/tasks`
-- место для подключения Subgram API
+## Проверка
 
-Файл, где подключать Subgram:
-`server.js`, функция `/api/tasks`.
+```text
+/health
+```
+
+Должно вернуть `subgram: true`, а при подключенной базе еще и `database: true`.
