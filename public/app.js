@@ -33,9 +33,9 @@ const MIN_WITHDRAW = 50;
 const DESIGN_STORAGE_KEY = "subzon-design";
 const DEFAULT_DESIGN = {
   theme: "gold",
-  card: "girl-glasses"
+  card: "subzon"
 };
-const CARD_SKINS = ["girl-glasses", "girl-mirror", "russia", "red-mask", "samurai", "soldier"];
+const CARD_SKINS = ["subzon", "girl-glasses", "girl-mirror", "russia", "red-mask", "samurai", "soldier"];
 const $ = (selector) => document.querySelector(selector);
 const telegramHeaders = tg?.initData
   ? { "X-Telegram-Init-Data": tg.initData }
