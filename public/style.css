@@ -38,6 +38,10 @@ button {
   font: inherit;
 }
 
+button:active {
+  transform: translateY(1px);
+}
+
 .shell {
   width: min(480px, 100%);
   min-height: 100vh;
@@ -135,6 +139,13 @@ button {
   box-shadow: var(--shadow);
 }
 
+.hero {
+  grid-template-areas:
+    "copy"
+    "card"
+    "mascot";
+}
+
 .hero::after {
   content: "S";
   position: absolute;
@@ -160,6 +171,7 @@ button {
 .hero-copy {
   position: relative;
   z-index: 1;
+  grid-area: copy;
 }
 
 .status-pill {
@@ -225,6 +237,7 @@ h1 {
 .balance-card {
   position: relative;
   z-index: 1;
+  grid-area: card;
   display: grid;
   gap: 18px;
   width: min(270px, 100%);
@@ -237,6 +250,44 @@ h1 {
     radial-gradient(circle at 92% 12%, rgba(255, 255, 255, .22), transparent 22%),
     linear-gradient(145deg, #16181e, #252932 52%, #111318);
   box-shadow: 0 22px 44px rgba(0, 0, 0, .28);
+}
+
+.mascot-card {
+  position: absolute;
+  right: 14px;
+  bottom: 14px;
+  z-index: 0;
+  overflow: hidden;
+  width: 132px;
+  height: 132px;
+  margin: 0;
+  border: 1px solid rgba(17, 19, 24, .12);
+  border-radius: 18px;
+  background:
+    radial-gradient(circle at 35% 18%, rgba(255, 255, 255, .34), transparent 30%),
+    linear-gradient(145deg, rgba(17, 19, 24, .9), rgba(44, 48, 58, .82));
+  box-shadow: 0 18px 38px rgba(17, 19, 24, .24);
+}
+
+.mascot-card::before {
+  content: "";
+  position: absolute;
+  inset: auto -20px -28px auto;
+  width: 94px;
+  height: 94px;
+  border-radius: 50%;
+  background: rgba(255, 204, 0, .28);
+  filter: blur(18px);
+}
+
+.mascot-card img {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transform: scale(1.08);
+  filter: contrast(1.08) saturate(.95);
 }
 
 .balance-card::after {
@@ -301,6 +352,7 @@ h1 {
 
 .service-stats article {
   min-width: 0;
+  min-height: 78px;
   padding: 12px 10px;
   background: rgba(17, 19, 24, .9);
 }
@@ -312,6 +364,12 @@ h1 {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: 18px;
+}
+
+.service-stats span {
+  display: block;
+  min-height: 30px;
+  line-height: 1.25;
 }
 
 .stat-card {
@@ -646,6 +704,12 @@ h2 {
   background: rgba(17, 19, 24, .88);
   box-shadow: 0 12px 30px rgba(0, 0, 0, .18);
   cursor: pointer;
+  transition: border-color .16s ease, background .16s ease, transform .16s ease;
+}
+
+.wallet-actions button:active {
+  border-color: rgba(255, 204, 0, .36);
+  background: rgba(255, 255, 255, .07);
 }
 
 .wallet-actions span {
@@ -712,6 +776,14 @@ h2 {
   font: inherit;
   font-size: 15px;
   outline: none;
+}
+
+.withdraw-form input::placeholder,
+.withdraw-form textarea::placeholder,
+.admin-token-form input::placeholder,
+.admin-grid-form input::placeholder,
+.admin-user-balance-form input::placeholder {
+  color: rgba(154, 163, 178, .72);
 }
 
 .withdraw-form input,
@@ -831,6 +903,7 @@ h2 {
   text-align: right;
   color: #8cffc2;
   font-size: 16px;
+  white-space: nowrap;
 }
 
 .operation-item.expense b {
@@ -886,6 +959,7 @@ h2 {
   background: var(--yellow);
   text-align: center;
   font-size: 12px;
+  white-space: nowrap;
 }
 
 .withdraw-item.status-paid b,
@@ -1311,11 +1385,23 @@ h2 {
     padding: 18px;
   }
 
+  .mascot-card {
+    right: 10px;
+    bottom: 10px;
+    width: 104px;
+    height: 104px;
+    opacity: .72;
+  }
+
   h1 {
     font-size: 32px;
   }
 
   .quick-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .service-stats {
     grid-template-columns: 1fr;
   }
 

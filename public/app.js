@@ -530,6 +530,15 @@ $("#focusWithdrawForm")?.addEventListener("click", () => {
   $("#withdrawAmount")?.focus();
 });
 
+$("#focusWithdrawAccount")?.addEventListener("click", () => {
+  $("#withdrawForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#withdrawAccount")?.focus();
+});
+
+$("#showWithdrawHelp")?.addEventListener("click", () => {
+  tg?.showAlert?.("Вывод обрабатывается вручную. Укажи сумму, способ и реквизиты. После проверки заявка появится в истории со статусом.");
+});
+
 $("#withdrawForm")?.addEventListener("submit", async (event) => {
   event.preventDefault();
 
@@ -622,3 +631,4 @@ loadWithdrawals();
 loadOperations();
 loadReferrals();
 loadTasks();
+setInterval(loadStats, 60 * 1000);
