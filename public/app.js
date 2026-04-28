@@ -88,6 +88,11 @@ function updateProfileUI() {
   setText("#balanceShort", formatMoney(state.balance, state.balance > 9 ? 0 : 2));
   setText("#completed", state.completed);
   setText("#balanceCompleted", state.completed);
+  setText("#cardBackCompleted", formatNumber(state.completed));
+  setText("#cardBackBalance", formatMoney(state.balance, state.balance > 9 ? 0 : 2));
+  setText("#cardBackHint", missing > 0
+    ? `До вывода осталось ${formatMoney(missing)}`
+    : "Можно отправлять заявку на выплату");
   setText("#cardHolder", String(user.first_name || "Guest").toUpperCase());
   setText("#withdrawHint", missing > 0
     ? `До вывода осталось ${formatMoney(missing)}`
@@ -514,6 +519,13 @@ document.querySelectorAll(".tab").forEach((btn) => {
 });
 
 $("#refreshTasks")?.addEventListener("click", loadTasks);
+
+$("#flipBalanceCard")?.addEventListener("click", (event) => {
+  const card = event.currentTarget;
+  const flipped = card.classList.toggle("flipped");
+  card.setAttribute("aria-pressed", String(flipped));
+  card.setAttribute("aria-label", flipped ? "Показать баланс" : "Показать детали баланса");
+});
 
 $("#withdrawButton")?.addEventListener("click", () => {
   if (state.balance < MIN_WITHDRAW) {

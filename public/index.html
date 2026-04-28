@@ -29,23 +29,45 @@
           <p>Быстрые подписки, понятные награды и баланс всегда под рукой.</p>
         </div>
 
-        <article class="balance-card" aria-label="Баланс">
-          <div class="card-mascot" aria-hidden="true">
-            <img src="/mascot.png" alt="" />
-          </div>
-          <div class="card-row">
-            <span class="card-chip"></span>
-            <span class="card-brand">Subzon Pay</span>
-          </div>
-          <div>
-            <span class="card-label">Доступно</span>
-            <strong id="balanceHero">0.00 ₽</strong>
-          </div>
-          <div class="card-row card-bottom">
-            <span id="cardHolder">GUEST</span>
-            <span>•• 0428</span>
-          </div>
-        </article>
+        <button id="flipBalanceCard" class="balance-card-shell" type="button" aria-label="Показать детали баланса" aria-pressed="false">
+          <span class="balance-card">
+            <span class="card-face card-front">
+              <span class="card-mascot" aria-hidden="true">
+                <img src="/mascot.png" alt="" />
+              </span>
+              <span class="card-row">
+                <span class="card-chip"></span>
+                <span class="card-brand">Subzon Pay</span>
+              </span>
+              <span>
+                <span class="card-label">Доступно</span>
+                <strong id="balanceHero">0.00 ₽</strong>
+              </span>
+              <span class="card-row card-bottom">
+                <span id="cardHolder">GUEST</span>
+                <span>•• 0428</span>
+              </span>
+            </span>
+
+            <span class="card-face card-back">
+              <span class="card-row">
+                <span class="card-brand">Детали</span>
+                <span class="card-badge">10%</span>
+              </span>
+              <span class="card-back-grid">
+                <span>
+                  <small>Выполнено</small>
+                  <strong id="cardBackCompleted">0</strong>
+                </span>
+                <span>
+                  <small>К выводу</small>
+                  <strong id="cardBackBalance">0 ₽</strong>
+                </span>
+              </span>
+              <span class="card-back-note" id="cardBackHint">Добирай задания до первой выплаты</span>
+            </span>
+          </span>
+        </button>
       </section>
 
       <section class="quick-stats" aria-label="Статистика профиля">
