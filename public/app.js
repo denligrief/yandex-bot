@@ -39,6 +39,12 @@ function setText(selector, text) {
   if (el) el.textContent = text;
 }
 
+function updateProfileFromData(data) {
+  state.balance = Number(data.balance || 0);
+  state.completed = Number(data.completed || 0);
+  updateProfileUI();
+}
+
 function updateProfileUI() {
   const progress = Math.min((state.balance / MIN_WITHDRAW) * 100, 100);
   const missing = Math.max(MIN_WITHDRAW - state.balance, 0);
@@ -64,14 +70,16 @@ function createEmptyState(text) {
 
 async function loadProfile() {
   try {
-    const res = await fetch(`/api/profile?user_id=${encodeURIComponent(user.id)}`);
+    const res = await fetch(`/api/profile?${getUserParams()}`);
     const data = await res.json();
 
-    state.balance = Number(data.balance || 0);
-    state.completed = Number(data.completed || 0);
-    updateProfileUI();
-  } catch {
-    tg?.showAlert?.("Не удалось загрузить профиль");
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось загрузить профиль");
+    }
+
+    updateProfileFromData(data);
+  } catch (error) {
+    tg?.showAlert?.(error.message || "Не удалось загрузить профиль");
   }
 }
 
@@ -188,18 +196,20 @@ async function checkTask(task) {
         user_id: user.id,
         chat_id: user.id,
         task_id: task.id,
-        task_url: task.url
+        task_url: task.url,
+        source: task.source
       })
     });
 
     const data = await res.json();
     tg?.showAlert?.(data.message || "Проверка выполнена");
 
-    if (data.ok) {
-      state.balance += Number(data.reward || 0);
-      state.completed += 1;
+    if (data.profile) {
+      updateProfileFromData(data.profile);
+    }
+
+    if (data.ok || data.alreadyCompleted) {
       state.tasks = state.tasks.filter((item) => item.id !== task.id);
-      updateProfileUI();
     }
   } catch {
     tg?.showAlert?.("Не удалось отправить подписку на проверку");
