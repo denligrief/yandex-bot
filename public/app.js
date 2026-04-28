@@ -105,7 +105,7 @@ async function loadTasks() {
       tg?.showAlert?.(data.warning);
     }
   } catch (error) {
-    list.replaceChildren(createEmptyState(error.message || "Не получилось загрузить подписки. Попробуй ещё раз."));
+    list.replaceChildren(createEmptyState(error.message || "Не получилось загрузить подписки. Попробуй еще раз."));
   } finally {
     refresh?.classList.remove("loading");
   }

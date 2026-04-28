@@ -5,11 +5,12 @@
   --surface-3: #20242d;
   --text: #f7f8fb;
   --muted: #9aa3b2;
+  --muted-2: #c1c7d2;
   --line: rgba(255, 255, 255, .08);
   --yellow: #ffcc00;
   --yellow-soft: #ffe071;
-  --red: #ff4d4f;
   --green: #28d17c;
+  --blue: #4da3ff;
   --shadow: 0 18px 48px rgba(0, 0, 0, .36);
 }
 
@@ -27,8 +28,8 @@ body {
   min-height: 100vh;
   color: var(--text);
   background:
-    radial-gradient(circle at 86% -10%, rgba(255, 204, 0, .23), transparent 28%),
-    radial-gradient(circle at 12% 8%, rgba(255, 77, 79, .12), transparent 22%),
+    radial-gradient(circle at 84% -8%, rgba(255, 204, 0, .24), transparent 29%),
+    radial-gradient(circle at 8% 4%, rgba(77, 163, 255, .11), transparent 24%),
     linear-gradient(180deg, #151820 0%, var(--bg) 58%);
   font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
@@ -41,7 +42,7 @@ button {
   width: min(480px, 100%);
   min-height: 100vh;
   margin: 0 auto;
-  padding: 14px 14px 24px;
+  padding: 12px 10px 24px;
 }
 
 .topbar {
@@ -49,7 +50,8 @@ button {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
+  padding: 2px 2px 0;
 }
 
 .brand {
@@ -65,11 +67,12 @@ button {
   width: 38px;
   height: 38px;
   place-items: center;
-  border-radius: 8px;
+  border-radius: 10px;
   color: #111;
-  background: var(--yellow);
-  font-weight: 950;
+  background: linear-gradient(135deg, var(--yellow), #fff0a1);
+  box-shadow: 0 10px 24px rgba(255, 204, 0, .18);
   font-size: 22px;
+  font-weight: 950;
 }
 
 .brand p,
@@ -105,7 +108,7 @@ button {
   height: 40px;
   place-items: center;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 10px;
   color: var(--text);
   background: rgba(255, 255, 255, .06);
   cursor: pointer;
@@ -120,26 +123,38 @@ button {
   overflow: hidden;
   display: grid;
   grid-template-columns: 1fr;
-  gap: 18px;
-  min-height: 228px;
-  padding: 22px;
+  gap: 16px;
+  min-height: 224px;
+  padding: 22px 22px 20px;
   border: 1px solid rgba(255, 204, 0, .26);
-  border-radius: 8px;
-  background:
-    linear-gradient(140deg, rgba(255, 204, 0, .98), rgba(255, 224, 113, .96) 44%, rgba(255, 255, 255, .9));
+  border-radius: 14px;
   color: #111318;
+  background:
+    radial-gradient(circle at 78% 18%, rgba(255, 255, 255, .72), transparent 22%),
+    linear-gradient(140deg, rgba(255, 204, 0, .98), rgba(255, 224, 113, .96) 48%, rgba(255, 248, 210, .94));
   box-shadow: var(--shadow);
 }
 
 .hero::after {
-  content: "Я";
+  content: "S";
   position: absolute;
-  right: -18px;
-  bottom: -54px;
+  right: -14px;
+  bottom: -58px;
   color: rgba(17, 19, 24, .08);
-  font-size: 178px;
+  font-size: 188px;
   font-weight: 950;
   line-height: 1;
+}
+
+.hero::before {
+  content: "";
+  position: absolute;
+  right: 24px;
+  bottom: 24px;
+  width: 82px;
+  height: 82px;
+  border: 18px solid rgba(17, 19, 24, .08);
+  border-radius: 50%;
 }
 
 .hero-copy,
@@ -163,7 +178,7 @@ button {
 h1 {
   max-width: 340px;
   margin: 14px 0 10px;
-  font-size: clamp(31px, 9vw, 42px);
+  font-size: clamp(34px, 9vw, 44px);
   line-height: 1;
   letter-spacing: 0;
 }
@@ -183,9 +198,9 @@ h1 {
   min-width: 168px;
   padding: 12px 14px;
   border: 1px solid rgba(17, 19, 24, .1);
-  border-radius: 8px;
-  background: rgba(17, 19, 24, .92);
+  border-radius: 12px;
   color: var(--text);
+  background: rgba(17, 19, 24, .92);
 }
 
 .hero-metric span,
@@ -218,7 +233,7 @@ h1 {
 .task,
 .mini-list article {
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(17, 19, 24, .88);
   box-shadow: 0 12px 34px rgba(0, 0, 0, .2);
 }
@@ -226,7 +241,7 @@ h1 {
 .stat-card {
   min-width: 0;
   min-height: 82px;
-  padding: 13px;
+  padding: 13px 12px;
 }
 
 .stat-card strong {
@@ -256,7 +271,7 @@ h1 {
   margin: 14px 0 18px;
   padding: 4px;
   border: 1px solid var(--line);
-  border-radius: 8px;
+  border-radius: 12px;
   background: rgba(11, 12, 16, .78);
   backdrop-filter: blur(18px);
 }
@@ -264,7 +279,7 @@ h1 {
 .tab {
   min-height: 40px;
   border: 0;
-  border-radius: 6px;
+  border-radius: 9px;
   color: var(--muted);
   background: transparent;
   font-size: 14px;
@@ -306,7 +321,7 @@ h2 {
   height: 30px;
   place-items: center;
   border: 1px solid rgba(255, 204, 0, .24);
-  border-radius: 8px;
+  border-radius: 9px;
   color: var(--yellow-soft);
   background: rgba(255, 204, 0, .1);
   font-size: 13px;
@@ -322,12 +337,22 @@ h2 {
   position: relative;
   overflow: hidden;
   padding: 16px;
+  transition: transform .16s ease, border-color .16s ease, background .16s ease;
+}
+
+.task:active {
+  transform: scale(.992);
 }
 
 .task-number {
-  display: block;
+  display: inline-grid;
+  min-width: 30px;
+  height: 24px;
+  place-items: center;
   margin-bottom: 12px;
-  color: rgba(255, 255, 255, .24);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, .48);
+  background: rgba(255, 255, 255, .05);
   font-size: 12px;
   font-weight: 950;
 }
@@ -345,13 +370,17 @@ h2 {
   line-height: 1.2;
 }
 
+.task-info p {
+  color: var(--muted-2);
+}
+
 .reward {
   display: inline-flex;
   align-items: center;
   min-height: 34px;
   padding: 0 10px;
   border: 1px solid rgba(40, 209, 124, .24);
-  border-radius: 8px;
+  border-radius: 10px;
   color: #8cffc2;
   background: rgba(40, 209, 124, .11);
   white-space: nowrap;
@@ -369,7 +398,7 @@ h2 {
 .secondary-btn {
   min-height: 46px;
   border: 0;
-  border-radius: 8px;
+  border-radius: 10px;
   padding: 0 14px;
   font-weight: 900;
   cursor: pointer;
@@ -377,12 +406,13 @@ h2 {
 
 .primary-btn {
   color: #111318;
-  background: var(--yellow);
+  background: linear-gradient(180deg, var(--yellow), #f2bd00);
+  box-shadow: 0 12px 24px rgba(255, 204, 0, .12);
 }
 
 .secondary-btn {
   color: var(--text);
-  background: var(--surface-3);
+  background: linear-gradient(180deg, #262b35, var(--surface-3));
 }
 
 .primary-btn:disabled,
@@ -458,7 +488,7 @@ h2 {
   place-items: center;
   padding: 18px;
   border: 1px dashed rgba(255, 255, 255, .14);
-  border-radius: 8px;
+  border-radius: 12px;
   color: var(--muted);
   background: rgba(255, 255, 255, .04);
   text-align: center;
@@ -473,11 +503,15 @@ h2 {
 
 @media (max-width: 360px) {
   .shell {
-    padding-inline: 10px;
+    padding-inline: 8px;
   }
 
   .hero {
     padding: 18px;
+  }
+
+  h1 {
+    font-size: 32px;
   }
 
   .quick-stats {
