@@ -17,6 +17,19 @@ const state = {
 const MIN_WITHDRAW = 50;
 const $ = (selector) => document.querySelector(selector);
 
+function getUserParams() {
+  const params = new URLSearchParams({
+    user_id: String(user.id),
+    chat_id: String(user.id),
+    first_name: user.first_name || "",
+    username: user.username || "",
+    language_code: user.language_code || "ru",
+    is_premium: String(Boolean(user.is_premium))
+  });
+
+  return params.toString();
+}
+
 function formatMoney(value, digits = 2) {
   return `${Number(value || 0).toFixed(digits)} ₽`;
 }
@@ -66,17 +79,25 @@ async function loadTasks() {
   const list = $("#taskList");
   const refresh = $("#refreshTasks");
 
-  list.replaceChildren(createEmptyState("Загружаем свежие задания..."));
+  list.replaceChildren(createEmptyState("Загружаем свежие подписки..."));
   refresh?.classList.add("loading");
 
   try {
-    const res = await fetch(`/api/tasks?user_id=${encodeURIComponent(user.id)}`);
+    const res = await fetch(`/api/tasks?${getUserParams()}`);
     const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Ошибка загрузки SubGram");
+    }
 
     state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
     renderTasks();
-  } catch {
-    list.replaceChildren(createEmptyState("Не получилось загрузить задания. Попробуй ещё раз."));
+
+    if (data.warning) {
+      tg?.showAlert?.(data.warning);
+    }
+  } catch (error) {
+    list.replaceChildren(createEmptyState(error.message || "Не получилось загрузить подписки. Попробуй ещё раз."));
   } finally {
     refresh?.classList.remove("loading");
   }
@@ -87,7 +108,7 @@ function renderTasks() {
   setText("#taskCount", state.tasks.length);
 
   if (!state.tasks.length) {
-    list.replaceChildren(createEmptyState("Пока нет доступных заданий. Загляни чуть позже."));
+    list.replaceChildren(createEmptyState("SubGram не вернул доступных подписок. Загляни чуть позже."));
     return;
   }
 
@@ -104,10 +125,10 @@ function renderTasks() {
     info.className = "task-info";
 
     const title = document.createElement("h3");
-    title.textContent = task.title || "Задание";
+    title.textContent = task.title || "Подписка";
 
     const meta = document.createElement("p");
-    meta.textContent = task.type === "subscribe" ? "Подписка на канал" : "Быстрое действие";
+    meta.textContent = task.source === "subgram" ? "SubGram подписка" : "Демо-задание";
 
     const reward = document.createElement("strong");
     reward.className = "reward";
@@ -123,14 +144,15 @@ function renderTasks() {
     openButton.className = "secondary-btn";
     openButton.type = "button";
     openButton.textContent = "Перейти";
+    openButton.disabled = !task.url;
     openButton.addEventListener("click", () => openTask(task.url));
 
     const checkButton = document.createElement("button");
     checkButton.className = "primary-btn";
     checkButton.type = "button";
     checkButton.textContent = state.checking.has(task.id) ? "Проверяем" : "Проверить";
-    checkButton.disabled = state.checking.has(task.id);
-    checkButton.addEventListener("click", () => checkTask(task.id));
+    checkButton.disabled = state.checking.has(task.id) || !task.url;
+    checkButton.addEventListener("click", () => checkTask(task));
 
     const number = document.createElement("span");
     number.className = "task-number";
@@ -150,10 +172,10 @@ function openTask(url) {
   if (!tg) window.open(url, "_blank", "noopener,noreferrer");
 }
 
-async function checkTask(taskId) {
-  if (!taskId || state.checking.has(taskId)) return;
+async function checkTask(task) {
+  if (!task?.id || state.checking.has(task.id)) return;
 
-  state.checking.add(taskId);
+  state.checking.add(task.id);
   renderTasks();
 
   try {
@@ -164,7 +186,9 @@ async function checkTask(taskId) {
       },
       body: JSON.stringify({
         user_id: user.id,
-        task_id: taskId
+        chat_id: user.id,
+        task_id: task.id,
+        task_url: task.url
       })
     });
 
@@ -174,12 +198,13 @@ async function checkTask(taskId) {
     if (data.ok) {
       state.balance += Number(data.reward || 0);
       state.completed += 1;
+      state.tasks = state.tasks.filter((item) => item.id !== task.id);
       updateProfileUI();
     }
   } catch {
-    tg?.showAlert?.("Не удалось отправить задание на проверку");
+    tg?.showAlert?.("Не удалось отправить подписку на проверку");
   } finally {
-    state.checking.delete(taskId);
+    state.checking.delete(task.id);
     renderTasks();
   }
 }
@@ -207,7 +232,7 @@ $("#copyRef")?.addEventListener("click", async () => {
   }
 });
 
-setText("#greeting", `${user.first_name || "Гость"}, выбирай задание`);
+setText("#greeting", `${user.first_name || "Гость"}, выбирай подписку`);
 updateProfileUI();
 loadProfile();
 loadTasks();
