@@ -288,7 +288,8 @@ async function ensureUser(user) {
       referrer_id: null
     };
 
-    const referrerId = user.referrer_id && user.referrer_id !== user.user_id
+    const isNewUser = !memoryStore.users.has(user.user_id);
+    const referrerId = isNewUser && user.referrer_id && user.referrer_id !== user.user_id
       ? user.referrer_id
       : current.referrer_id;
 
@@ -296,7 +297,7 @@ async function ensureUser(user) {
       ...current,
       first_name: user.first_name,
       username: user.username,
-      referrer_id: current.referrer_id || referrerId || null,
+      referrer_id: referrerId || null,
       updated_at: Date.now()
     });
 
@@ -325,7 +326,6 @@ async function ensureUser(user) {
       ON CONFLICT (telegram_id) DO UPDATE SET
         first_name = COALESCE(EXCLUDED.first_name, users.first_name),
         username = COALESCE(EXCLUDED.username, users.username),
-        referrer_id = COALESCE(users.referrer_id, EXCLUDED.referrer_id),
         updated_at = NOW()
       RETURNING
         telegram_id, balance, completed, referral_earned, referrer_id,
