@@ -30,10 +30,53 @@ const state = {
 };
 
 const MIN_WITHDRAW = 50;
+const DESIGN_STORAGE_KEY = "subzon-design";
+const DEFAULT_DESIGN = {
+  theme: "gold",
+  card: "black"
+};
 const $ = (selector) => document.querySelector(selector);
 const telegramHeaders = tg?.initData
   ? { "X-Telegram-Init-Data": tg.initData }
   : {};
+
+function readDesignSettings() {
+  try {
+    return {
+      ...DEFAULT_DESIGN,
+      ...JSON.parse(localStorage.getItem(DESIGN_STORAGE_KEY) || "{}")
+    };
+  } catch {
+    return { ...DEFAULT_DESIGN };
+  }
+}
+
+function saveDesignSettings(settings) {
+  try {
+    localStorage.setItem(DESIGN_STORAGE_KEY, JSON.stringify(settings));
+  } catch {
+    // Telegram WebView can disable storage in rare cases; visual choice still applies for this session.
+  }
+}
+
+function markActiveDesign(selector, activeValue, attribute) {
+  document.querySelectorAll(selector).forEach((button) => {
+    button.classList.toggle("active", button.dataset[attribute] === activeValue);
+  });
+}
+
+function applyDesignSettings(settings) {
+  const theme = ["gold", "emerald", "ice"].includes(settings.theme) ? settings.theme : DEFAULT_DESIGN.theme;
+  const card = ["black", "gold", "steel"].includes(settings.card) ? settings.card : DEFAULT_DESIGN.card;
+
+  document.body.dataset.appTheme = theme;
+  document.body.dataset.cardSkin = card;
+  markActiveDesign("[data-design-theme]", theme, "designTheme");
+  markActiveDesign("[data-card-skin]", card, "cardSkin");
+}
+
+const designSettings = readDesignSettings();
+applyDesignSettings(designSettings);
 
 function getJson(url, options = {}) {
   return fetch(url, {
@@ -519,6 +562,33 @@ document.querySelectorAll(".tab").forEach((btn) => {
 });
 
 $("#refreshTasks")?.addEventListener("click", loadTasks);
+
+$("#openDesignPanel")?.addEventListener("click", () => {
+  const panel = $("#designPanel");
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+});
+
+$("#closeDesignPanel")?.addEventListener("click", () => {
+  const panel = $("#designPanel");
+  if (panel) panel.hidden = true;
+});
+
+document.querySelectorAll("[data-design-theme]").forEach((button) => {
+  button.addEventListener("click", () => {
+    designSettings.theme = button.dataset.designTheme || DEFAULT_DESIGN.theme;
+    applyDesignSettings(designSettings);
+    saveDesignSettings(designSettings);
+  });
+});
+
+document.querySelectorAll("[data-card-skin]").forEach((button) => {
+  button.addEventListener("click", () => {
+    designSettings.card = button.dataset.cardSkin || DEFAULT_DESIGN.card;
+    applyDesignSettings(designSettings);
+    saveDesignSettings(designSettings);
+  });
+});
 
 $("#flipBalanceCard")?.addEventListener("click", (event) => {
   const card = event.currentTarget;

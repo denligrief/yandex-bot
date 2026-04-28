@@ -18,7 +18,10 @@
           <strong id="greeting">Задания на сегодня</strong>
         </div>
       </div>
-      <button id="refreshTasks" class="icon-btn" type="button" aria-label="Обновить задания">↻</button>
+      <div class="topbar-actions">
+        <button id="openDesignPanel" class="icon-btn" type="button" aria-label="Настроить вид">◐</button>
+        <button id="refreshTasks" class="icon-btn" type="button" aria-label="Обновить задания">↻</button>
+      </div>
     </header>
 
     <main>
@@ -68,6 +71,43 @@
             </span>
           </span>
         </button>
+      </section>
+
+      <section id="designPanel" class="design-panel" hidden>
+        <div class="section-title">
+          <div>
+            <span>Вид</span>
+            <h2>Оформление</h2>
+          </div>
+          <button id="closeDesignPanel" class="icon-btn compact" type="button" aria-label="Закрыть настройки">×</button>
+        </div>
+
+        <div class="design-block">
+          <span>Тема</span>
+          <div class="design-options" aria-label="Тема приложения">
+            <button class="design-choice active" type="button" data-design-theme="gold">Желтая</button>
+            <button class="design-choice" type="button" data-design-theme="emerald">Зеленая</button>
+            <button class="design-choice" type="button" data-design-theme="ice">Лед</button>
+          </div>
+        </div>
+
+        <div class="design-block">
+          <span>Карта</span>
+          <div class="card-skins" aria-label="Раскраска карты">
+            <button class="skin-choice active" type="button" data-card-skin="black">
+              <span class="skin-preview black"></span>
+              <b>Black</b>
+            </button>
+            <button class="skin-choice" type="button" data-card-skin="gold">
+              <span class="skin-preview gold"></span>
+              <b>Gold</b>
+            </button>
+            <button class="skin-choice" type="button" data-card-skin="steel">
+              <span class="skin-preview steel"></span>
+              <b>Steel</b>
+            </button>
+          </div>
+        </div>
       </section>
 
       <section class="quick-stats" aria-label="Статистика профиля">
