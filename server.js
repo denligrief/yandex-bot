@@ -381,11 +381,13 @@ async function getServiceStats() {
     const max = Math.max(min, FAKE_ONLINE_MAX);
     const now = new Date();
     const hour = now.getUTCHours();
-    const minuteBucket = Math.floor(now.getUTCMinutes() / 5);
+    const minuteBucket = Math.floor(now.getUTCMinutes() / 3);
+    const seed = Math.sin((Math.floor(Date.now() / 180000) + totalUsers * 17) * 12.9898) * 43758.5453;
+    const noise = seed - Math.floor(seed);
     const dayWave = Math.sin(((hour + 3) / 24) * Math.PI);
-    const bucketWave = Math.sin((minuteBucket / 12) * Math.PI * 2);
+    const bucketWave = Math.sin((minuteBucket / 20) * Math.PI * 2);
     const target = min
-      + Math.round((max - min) * (0.42 + dayWave * 0.38 + bucketWave * 0.12));
+      + Math.round((max - min) * (0.34 + dayWave * 0.34 + bucketWave * 0.12 + noise * 0.16));
     const cappedTarget = Math.min(max, Math.max(min, target));
     const growthBoost = Math.min(Math.floor(totalUsers / 7), Math.max(0, max - cappedTarget));
 
@@ -399,14 +401,14 @@ async function getServiceStats() {
       const updatedAt = user.updated_at || 0;
       return now - updatedAt < 5 * 60 * 1000;
     }).length;
-    const totalEarned = memoryStore.balanceOperations
-      .filter((operation) => Number(operation.amount || 0) > 0)
-      .reduce((sum, operation) => sum + Number(operation.amount || 0), 0);
+    const totalPaid = memoryStore.withdrawalRequests
+      .filter((request) => request.status === "paid")
+      .reduce((sum, request) => sum + Number(request.amount || 0), 0);
 
     return {
       online: makeDisplayOnline(online, users.length),
       total_users: users.length,
-      total_earned: totalEarned
+      total_earned: totalPaid
     };
   }
 
@@ -414,7 +416,7 @@ async function getServiceStats() {
     SELECT
       (SELECT COUNT(*)::int FROM users WHERE updated_at > NOW() - INTERVAL '5 minutes') AS online,
       (SELECT COUNT(*)::int FROM users) AS total_users,
-      COALESCE((SELECT SUM(amount) FROM balance_operations WHERE amount > 0), 0)::numeric AS total_earned
+      COALESCE((SELECT SUM(amount) FROM withdrawal_requests WHERE status = 'paid'), 0)::numeric AS total_earned
   `);
 
   const realOnline = Number(result.rows[0]?.online || 0);
