@@ -3,62 +3,99 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" />
   <title>Yandex Jobs Mini App</title>
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <link rel="stylesheet" href="/style.css" />
 </head>
 <body>
-  <div class="app">
-    <header class="hero">
-      <div>
-        <p class="eyebrow">YandexJobs</p>
-        <h1>Зарабатывай<br>на заданиях</h1>
+  <div class="shell">
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-mark">Я</span>
+        <div>
+          <p>YandexJobs</p>
+          <strong id="greeting">Задания на сегодня</strong>
+        </div>
       </div>
-      <div class="coin">₽</div>
+      <button id="refreshTasks" class="icon-btn" type="button" aria-label="Обновить задания">↻</button>
     </header>
 
-    <section class="stats-grid">
-      <div class="card">
-        <span>Баланс</span>
-        <strong id="balance">0.00₽</strong>
-      </div>
-      <div class="card">
-        <span>Заданий</span>
-        <strong id="completed">0</strong>
-      </div>
-    </section>
-
-    <nav class="tabs">
-      <button class="tab active" data-page="tasks">🔥 Задания</button>
-      <button class="tab" data-page="balance">💳 Баланс</button>
-      <button class="tab" data-page="ref">👥 Друзья</button>
-    </nav>
-
     <main>
+      <section class="hero">
+        <div class="hero-copy">
+          <span class="status-pill">Mini App</span>
+          <h1>Зарабатывай на простых действиях</h1>
+          <p>Быстрые задания, понятные награды и баланс всегда под рукой.</p>
+        </div>
+        <div class="hero-metric">
+          <span>Баланс</span>
+          <strong id="balance">0.00 ₽</strong>
+        </div>
+      </section>
+
+      <section class="quick-stats" aria-label="Статистика">
+        <article class="stat-card">
+          <span>Выполнено</span>
+          <strong id="completed">0</strong>
+        </article>
+        <article class="stat-card">
+          <span>К выводу</span>
+          <strong id="balanceShort">0 ₽</strong>
+        </article>
+        <article class="stat-card accent">
+          <span>Бонус</span>
+          <strong>10%</strong>
+        </article>
+      </section>
+
+      <nav class="tabs" aria-label="Разделы">
+        <button class="tab active" type="button" data-page="tasks">Задания</button>
+        <button class="tab" type="button" data-page="balance">Баланс</button>
+        <button class="tab" type="button" data-page="ref">Друзья</button>
+      </nav>
+
       <section id="tasks" class="page active">
         <div class="section-title">
-          <h2>Доступные задания</h2>
-          <button id="refreshTasks" class="small-btn">↻</button>
+          <div>
+            <span>Лента</span>
+            <h2>Доступные задания</h2>
+          </div>
+          <span id="taskCount" class="counter">0</span>
         </div>
-        <div id="taskList" class="task-list"></div>
+        <div id="taskList" class="task-list" aria-live="polite"></div>
       </section>
 
       <section id="balance" class="page">
-        <div class="big-card">
+        <article class="panel balance-panel">
           <span>Доступно к выводу</span>
-          <strong id="balanceBig">0.00₽</strong>
-          <p>Минимальный вывод: 50₽</p>
-          <button class="primary-btn">Вывести</button>
+          <strong id="balanceBig">0.00 ₽</strong>
+          <div class="progress">
+            <span id="withdrawProgress"></span>
+          </div>
+          <p id="withdrawHint">До минимального вывода осталось 50.00 ₽</p>
+          <button class="primary-btn" type="button">Вывести</button>
+        </article>
+
+        <div class="mini-list">
+          <article>
+            <span>Минимальная сумма</span>
+            <strong>50 ₽</strong>
+          </article>
+          <article>
+            <span>Статус выплат</span>
+            <strong>Скоро</strong>
+          </article>
         </div>
       </section>
 
       <section id="ref" class="page">
-        <div class="big-card">
-          <span>Реферальная ссылка</span>
-          <strong>+10% с друзей</strong>
-          <p>Приглашай людей и получай бонус за их задания.</p>
-          <button id="copyRef" class="primary-btn">Скопировать ссылку</button>
-        </div>
+        <article class="panel referral-panel">
+          <span>Реферальная программа</span>
+          <strong>Получай 10% с друзей</strong>
+          <p>Приглашай людей и забирай бонус с их выполненных заданий.</p>
+          <button id="copyRef" class="primary-btn" type="button">Скопировать ссылку</button>
+        </article>
       </section>
     </main>
   </div>

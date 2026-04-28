@@ -11,14 +11,15 @@ const __dirname = path.dirname(__filename);
 const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
+const BOT_POLLING = process.env.BOT_POLLING !== "false";
 
-if (!BOT_TOKEN) {
-  console.error("❌ BOT_TOKEN не указан в .env");
+if (BOT_POLLING && !BOT_TOKEN) {
+  console.error("BOT_TOKEN не указан в .env");
   process.exit(1);
 }
 
-if (!WEBAPP_URL) {
-  console.error("❌ WEBAPP_URL не указан в .env");
+if (BOT_POLLING && !WEBAPP_URL) {
+  console.error("WEBAPP_URL не указан в .env");
   process.exit(1);
 }
 
@@ -27,41 +28,39 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "public")));
 
-const bot = new Telegraf(BOT_TOKEN);
+const bot = BOT_POLLING ? new Telegraf(BOT_TOKEN) : null;
 
-bot.start(async (ctx) => {
+bot?.start(async (ctx) => {
   const name = ctx.from?.first_name || "друг";
 
   await ctx.reply(
-`👋 Привет, ${name}!
+`Привет, ${name}!
 
 Здесь можно зарабатывать на простых заданиях:
-• подписки на Telegram-каналы
-• быстрые проверки
-• бонусы за друзей
+- подписки на Telegram-каналы
+- быстрые проверки
+- бонусы за друзей
 
-Нажми кнопку ниже, чтобы открыть приложение 👇`,
+Нажми кнопку ниже, чтобы открыть приложение.`,
     Markup.inlineKeyboard([
-      Markup.button.webApp("💸 Заработать", WEBAPP_URL)
+      Markup.button.webApp("Заработать", WEBAPP_URL)
     ])
   );
 });
 
-bot.command("app", async (ctx) => {
+bot?.command("app", async (ctx) => {
   await ctx.reply(
-    "Открыть приложение 👇",
+    "Открыть приложение",
     Markup.inlineKeyboard([
-      Markup.button.webApp("💸 Открыть Mini App", WEBAPP_URL)
+      Markup.button.webApp("Открыть Mini App", WEBAPP_URL)
     ])
   );
 });
 
-// Проверка живости сервера
 app.get("/health", (req, res) => {
   res.json({ ok: true });
 });
 
-// Заглушка профиля
 app.get("/api/profile", async (req, res) => {
   const userId = req.query.user_id || "unknown";
 
@@ -73,9 +72,6 @@ app.get("/api/profile", async (req, res) => {
   });
 });
 
-// Тут подключается Subgram API.
-// Я оставил безопасную заглушку, чтобы приложение сразу запускалось.
-// Когда у тебя будет точный URL/док API Subgram, сюда вставляется реальный fetch.
 app.get("/api/tasks", async (req, res) => {
   const userId = req.query.user_id;
 
@@ -83,20 +79,7 @@ app.get("/api/tasks", async (req, res) => {
     return res.status(400).json({ error: "user_id required" });
   }
 
-  // Пример будущего подключения:
-  //
-  // const response = await fetch("https://api.subgram.ru/...", {
-  //   method: "POST",
-  //   headers: {
-  //     "Authorization": `Bearer ${process.env.SUBGRAM_API_KEY}`,
-  //     "Content-Type": "application/json"
-  //   },
-  //   body: JSON.stringify({ user_id: userId })
-  // });
-  //
-  // const data = await response.json();
-  // return res.json(data);
-
+  // Здесь можно подключить Subgram API, когда будут точные URL и формат ответа.
   res.json({
     tasks: [
       {
@@ -114,6 +97,14 @@ app.get("/api/tasks", async (req, res) => {
         type: "subscribe",
         url: "https://t.me/durov",
         status: "available"
+      },
+      {
+        id: "demo_3",
+        title: "Проверь новое задание дня",
+        reward: 1.25,
+        type: "action",
+        url: "https://t.me/telegram",
+        status: "available"
       }
     ]
   });
@@ -126,7 +117,6 @@ app.post("/api/check-task", async (req, res) => {
     return res.status(400).json({ error: "user_id and task_id required" });
   }
 
-  // Здесь потом будет проверка через Subgram или Telegram API.
   res.json({
     ok: true,
     message: "Задание отправлено на проверку",
@@ -135,12 +125,16 @@ app.post("/api/check-task", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Web server started on port ${PORT}`);
+  console.log(`Web server started on port ${PORT}`);
 });
 
-bot.launch(() => {
-  console.log("✅ Telegram bot started");
-});
+if (bot) {
+  bot.launch(() => {
+    console.log("Telegram bot started");
+  });
+} else {
+  console.log("Telegram bot polling disabled");
+}
 
-process.once("SIGINT", () => bot.stop("SIGINT"));
-process.once("SIGTERM", () => bot.stop("SIGTERM"));
+process.once("SIGINT", () => bot?.stop("SIGINT"));
+process.once("SIGTERM", () => bot?.stop("SIGTERM"));

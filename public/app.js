@@ -4,16 +4,22 @@ tg?.expand();
 
 const user = tg?.initDataUnsafe?.user || {
   id: "demo_user",
-  first_name: "User"
+  first_name: "Гость"
 };
 
 const state = {
   balance: 0,
   completed: 0,
-  tasks: []
+  tasks: [],
+  checking: new Set()
 };
 
+const MIN_WITHDRAW = 50;
 const $ = (selector) => document.querySelector(selector);
+
+function formatMoney(value, digits = 2) {
+  return `${Number(value || 0).toFixed(digits)} ₽`;
+}
 
 function setText(selector, text) {
   const el = $(selector);
@@ -21,103 +27,176 @@ function setText(selector, text) {
 }
 
 function updateProfileUI() {
-  setText("#balance", `${state.balance.toFixed(2)}₽`);
-  setText("#balanceBig", `${state.balance.toFixed(2)}₽`);
+  const progress = Math.min((state.balance / MIN_WITHDRAW) * 100, 100);
+  const missing = Math.max(MIN_WITHDRAW - state.balance, 0);
+
+  setText("#balance", formatMoney(state.balance));
+  setText("#balanceBig", formatMoney(state.balance));
+  setText("#balanceShort", formatMoney(state.balance, state.balance > 9 ? 0 : 2));
   setText("#completed", state.completed);
+  setText("#withdrawHint", missing > 0
+    ? `До минимального вывода осталось ${formatMoney(missing)}`
+    : "Можно отправлять заявку на вывод");
+
+  const progressBar = $("#withdrawProgress");
+  if (progressBar) progressBar.style.width = `${progress}%`;
+}
+
+function createEmptyState(text) {
+  const empty = document.createElement("div");
+  empty.className = "empty-state";
+  empty.textContent = text;
+  return empty;
 }
 
 async function loadProfile() {
-  const res = await fetch(`/api/profile?user_id=${encodeURIComponent(user.id)}`);
-  const data = await res.json();
+  try {
+    const res = await fetch(`/api/profile?user_id=${encodeURIComponent(user.id)}`);
+    const data = await res.json();
 
-  state.balance = Number(data.balance || 0);
-  state.completed = Number(data.completed || 0);
-
-  updateProfileUI();
+    state.balance = Number(data.balance || 0);
+    state.completed = Number(data.completed || 0);
+    updateProfileUI();
+  } catch {
+    tg?.showAlert?.("Не удалось загрузить профиль");
+  }
 }
 
 async function loadTasks() {
   const list = $("#taskList");
-  list.innerHTML = `<div class="task">Загружаем задания...</div>`;
+  const refresh = $("#refreshTasks");
+
+  list.replaceChildren(createEmptyState("Загружаем свежие задания..."));
+  refresh?.classList.add("loading");
 
   try {
     const res = await fetch(`/api/tasks?user_id=${encodeURIComponent(user.id)}`);
     const data = await res.json();
 
-    state.tasks = data.tasks || [];
+    state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
     renderTasks();
-  } catch (e) {
-    list.innerHTML = `<div class="task">Ошибка загрузки заданий</div>`;
+  } catch {
+    list.replaceChildren(createEmptyState("Не получилось загрузить задания. Попробуй ещё раз."));
+  } finally {
+    refresh?.classList.remove("loading");
   }
 }
 
 function renderTasks() {
   const list = $("#taskList");
+  setText("#taskCount", state.tasks.length);
 
   if (!state.tasks.length) {
-    list.innerHTML = `<div class="task">Пока нет доступных заданий. Попробуй позже.</div>`;
+    list.replaceChildren(createEmptyState("Пока нет доступных заданий. Загляни чуть позже."));
     return;
   }
 
-  list.innerHTML = state.tasks.map(task => `
-    <article class="task">
-      <div class="task-top">
-        <div>
-          <div class="task-title">${task.title}</div>
-          <div style="color: var(--muted); margin-top: 5px;">Тип: ${task.type || "задание"}</div>
-        </div>
-        <div class="reward">+${Number(task.reward || 0).toFixed(2)}₽</div>
-      </div>
+  const fragment = document.createDocumentFragment();
 
-      <div class="task-actions">
-        <button class="secondary-btn" onclick="openTask('${task.url}')">Перейти</button>
-        <button class="primary-btn" onclick="checkTask('${task.id}')">Проверить</button>
-      </div>
-    </article>
-  `).join("");
-}
+  state.tasks.forEach((task, index) => {
+    const card = document.createElement("article");
+    card.className = "task";
 
-window.openTask = function(url) {
-  tg?.openTelegramLink?.(url);
-  if (!tg) window.open(url, "_blank");
-};
+    const top = document.createElement("div");
+    top.className = "task-top";
 
-window.checkTask = async function(taskId) {
-  const res = await fetch("/api/check-task", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify({
-      user_id: user.id,
-      task_id: taskId
-    })
+    const info = document.createElement("div");
+    info.className = "task-info";
+
+    const title = document.createElement("h3");
+    title.textContent = task.title || "Задание";
+
+    const meta = document.createElement("p");
+    meta.textContent = task.type === "subscribe" ? "Подписка на канал" : "Быстрое действие";
+
+    const reward = document.createElement("strong");
+    reward.className = "reward";
+    reward.textContent = `+${formatMoney(task.reward)}`;
+
+    info.append(title, meta);
+    top.append(info, reward);
+
+    const footer = document.createElement("div");
+    footer.className = "task-actions";
+
+    const openButton = document.createElement("button");
+    openButton.className = "secondary-btn";
+    openButton.type = "button";
+    openButton.textContent = "Перейти";
+    openButton.addEventListener("click", () => openTask(task.url));
+
+    const checkButton = document.createElement("button");
+    checkButton.className = "primary-btn";
+    checkButton.type = "button";
+    checkButton.textContent = state.checking.has(task.id) ? "Проверяем" : "Проверить";
+    checkButton.disabled = state.checking.has(task.id);
+    checkButton.addEventListener("click", () => checkTask(task.id));
+
+    const number = document.createElement("span");
+    number.className = "task-number";
+    number.textContent = String(index + 1).padStart(2, "0");
+
+    footer.append(openButton, checkButton);
+    card.append(number, top, footer);
+    fragment.append(card);
   });
 
-  const data = await res.json();
+  list.replaceChildren(fragment);
+}
 
-  tg?.showAlert?.(data.message || "Проверка выполнена");
+function openTask(url) {
+  if (!url) return;
+  tg?.openTelegramLink?.(url);
+  if (!tg) window.open(url, "_blank", "noopener,noreferrer");
+}
 
-  if (data.ok) {
-    state.balance += Number(data.reward || 0);
-    state.completed += 1;
-    updateProfileUI();
+async function checkTask(taskId) {
+  if (!taskId || state.checking.has(taskId)) return;
+
+  state.checking.add(taskId);
+  renderTasks();
+
+  try {
+    const res = await fetch("/api/check-task", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        task_id: taskId
+      })
+    });
+
+    const data = await res.json();
+    tg?.showAlert?.(data.message || "Проверка выполнена");
+
+    if (data.ok) {
+      state.balance += Number(data.reward || 0);
+      state.completed += 1;
+      updateProfileUI();
+    }
+  } catch {
+    tg?.showAlert?.("Не удалось отправить задание на проверку");
+  } finally {
+    state.checking.delete(taskId);
+    renderTasks();
   }
-};
+}
 
-document.querySelectorAll(".tab").forEach(btn => {
+document.querySelectorAll(".tab").forEach((btn) => {
   btn.addEventListener("click", () => {
-    document.querySelectorAll(".tab").forEach(b => b.classList.remove("active"));
-    document.querySelectorAll(".page").forEach(p => p.classList.remove("active"));
+    document.querySelectorAll(".tab").forEach((tab) => tab.classList.remove("active"));
+    document.querySelectorAll(".page").forEach((page) => page.classList.remove("active"));
 
     btn.classList.add("active");
-    document.getElementById(btn.dataset.page).classList.add("active");
+    document.getElementById(btn.dataset.page)?.classList.add("active");
   });
 });
 
-$("#refreshTasks").addEventListener("click", loadTasks);
+$("#refreshTasks")?.addEventListener("click", loadTasks);
 
-$("#copyRef").addEventListener("click", async () => {
+$("#copyRef")?.addEventListener("click", async () => {
   const link = `https://t.me/YOUR_BOT_USERNAME?start=${user.id}`;
 
   try {
@@ -128,5 +207,7 @@ $("#copyRef").addEventListener("click", async () => {
   }
 });
 
+setText("#greeting", `${user.first_name || "Гость"}, выбирай задание`);
+updateProfileUI();
 loadProfile();
 loadTasks();
