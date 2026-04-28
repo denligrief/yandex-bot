@@ -12,6 +12,14 @@ const state = {
   completed: 0,
   tasks: [],
   withdrawals: [],
+  operations: [],
+  referrals: {
+    percent: 10,
+    referrals_count: 0,
+    referral_earned: 0,
+    referrals: [],
+    link: null
+  },
   withdrawSubmitting: false,
   checking: new Set(),
   stats: {
@@ -23,6 +31,19 @@ const state = {
 
 const MIN_WITHDRAW = 50;
 const $ = (selector) => document.querySelector(selector);
+const telegramHeaders = tg?.initData
+  ? { "X-Telegram-Init-Data": tg.initData }
+  : {};
+
+function getJson(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    headers: {
+      ...telegramHeaders,
+      ...options.headers
+    }
+  });
+}
 
 function getUserParams() {
   const params = new URLSearchParams({
@@ -110,6 +131,69 @@ function updateStatsUI() {
   setText("#totalEarned", formatMoney(state.stats.total_earned));
 }
 
+function updateReferralUI() {
+  const data = state.referrals;
+
+  setText("#refCount", formatNumber(data.referrals_count));
+  setText("#refEarned", formatMoney(data.referral_earned));
+  setText("#refPercent", `${Number(data.percent || 10)}%`);
+  setText("#refLinkText", data.link || "Добавь BOT_USERNAME на сервере, чтобы ссылка появилась");
+
+  const list = $("#refList");
+  if (!list) return;
+
+  const referrals = Array.isArray(data.referrals) ? data.referrals : [];
+
+  if (!referrals.length) {
+    list.replaceChildren(createEmptyState("Пока никто не пришел по твоей ссылке"));
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  referrals.forEach((referral) => {
+    const item = document.createElement("article");
+    item.className = "ref-item";
+
+    const name = document.createElement("strong");
+    name.textContent = referral.username ? `@${referral.username}` : referral.first_name || `ID ${referral.user_id}`;
+
+    const meta = document.createElement("span");
+    meta.textContent = `Выполнено заданий: ${formatNumber(referral.completed)}`;
+
+    item.append(name, meta);
+    fragment.append(item);
+  });
+
+  list.replaceChildren(fragment);
+}
+
+async function loadReferrals() {
+  try {
+    const res = await getJson(`/api/referrals?${getUserParams()}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось загрузить рефералов");
+    }
+
+    state.referrals = {
+      percent: Number(data.percent || 10),
+      referrals_count: Number(data.referrals_count || 0),
+      referral_earned: Number(data.referral_earned || 0),
+      referrals: Array.isArray(data.referrals) ? data.referrals : [],
+      link: data.link || null
+    };
+  } catch {
+    state.referrals = {
+      ...state.referrals,
+      link: state.referrals.link || null
+    };
+  } finally {
+    updateReferralUI();
+  }
+}
+
 function createEmptyState(text) {
   const empty = document.createElement("div");
   empty.className = "empty-state";
@@ -119,7 +203,7 @@ function createEmptyState(text) {
 
 async function loadProfile() {
   try {
-    const res = await fetch(`/api/profile?${getUserParams()}`);
+    const res = await getJson(`/api/profile?${getUserParams()}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -134,7 +218,7 @@ async function loadProfile() {
 
 async function loadStats() {
   try {
-    const res = await fetch("/api/stats");
+    const res = await getJson("/api/stats");
     const data = await res.json();
 
     if (!res.ok) {
@@ -215,9 +299,59 @@ function renderWithdrawals() {
   list.replaceChildren(fragment);
 }
 
+function renderOperations() {
+  const list = $("#operationList");
+  if (!list) return;
+
+  if (!state.operations.length) {
+    list.replaceChildren(createEmptyState("Операций пока нет"));
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  state.operations.forEach((operation) => {
+    const item = document.createElement("article");
+    item.className = `operation-item ${Number(operation.amount) >= 0 ? "income" : "expense"}`;
+
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = operation.title || "Операция";
+
+    const meta = document.createElement("span");
+    const date = formatDate(operation.created_at);
+    meta.textContent = [operation.meta, date].filter(Boolean).join(" · ");
+
+    const amount = document.createElement("b");
+    amount.textContent = `${Number(operation.amount) >= 0 ? "+" : ""}${formatMoney(operation.amount)}`;
+
+    info.append(title, meta);
+    item.append(info, amount);
+    fragment.append(item);
+  });
+
+  list.replaceChildren(fragment);
+}
+
+async function loadOperations() {
+  try {
+    const res = await getJson(`/api/operations?${getUserParams()}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось загрузить операции");
+    }
+
+    state.operations = Array.isArray(data.operations) ? data.operations : [];
+    renderOperations();
+  } catch {
+    renderOperations();
+  }
+}
+
 async function loadWithdrawals() {
   try {
-    const res = await fetch(`/api/withdrawals?${getUserParams()}`);
+    const res = await getJson(`/api/withdrawals?${getUserParams()}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -239,7 +373,7 @@ async function loadTasks() {
   refresh?.classList.add("loading");
 
   try {
-    const res = await fetch(`/api/tasks?${getUserParams()}`);
+    const res = await getJson(`/api/tasks?${getUserParams()}`);
     const data = await res.json();
 
     if (!res.ok) {
@@ -336,13 +470,12 @@ async function checkTask(task) {
   renderTasks();
 
   try {
-    const res = await fetch("/api/check-task", {
+    const res = await getJson("/api/check-task", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        user_id: user.id,
         chat_id: user.id,
         task_id: task.id,
         task_url: task.url,
@@ -356,6 +489,7 @@ async function checkTask(task) {
     if (data.profile) {
       updateProfileFromData(data.profile);
       loadStats();
+      loadOperations();
     }
 
     if (data.ok || data.alreadyCompleted) {
@@ -424,13 +558,12 @@ $("#withdrawForm")?.addEventListener("submit", async (event) => {
   updateProfileUI();
 
   try {
-    const res = await fetch("/api/withdrawals", {
+    const res = await getJson("/api/withdrawals", {
       method: "POST",
       headers: {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        user_id: user.id,
         amount,
         method,
         account
@@ -450,6 +583,7 @@ $("#withdrawForm")?.addEventListener("submit", async (event) => {
       state.withdrawals = [data.request, ...state.withdrawals];
       renderWithdrawals();
     }
+    await loadOperations();
 
     $("#withdrawForm")?.reset();
     tg?.showAlert?.(data.message || "Заявка создана");
@@ -462,7 +596,12 @@ $("#withdrawForm")?.addEventListener("submit", async (event) => {
 });
 
 $("#copyRef")?.addEventListener("click", async () => {
-  const link = `https://t.me/YOUR_BOT_USERNAME?start=${user.id}`;
+  const link = state.referrals.link;
+
+  if (!link) {
+    tg?.showAlert?.("Добавь BOT_USERNAME в переменные окружения");
+    return;
+  }
 
   try {
     await navigator.clipboard.writeText(link);
@@ -475,7 +614,10 @@ $("#copyRef")?.addEventListener("click", async () => {
 setText("#greeting", `${user.first_name || "Гость"}, выбирай подписку`);
 updateProfileUI();
 updateStatsUI();
+updateReferralUI();
 loadProfile();
 loadStats();
 loadWithdrawals();
+loadOperations();
+loadReferrals();
 loadTasks();

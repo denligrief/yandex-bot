@@ -194,6 +194,18 @@
           </article>
         </section>
 
+        <section class="operation-history" aria-label="История операций">
+          <div class="section-title">
+            <div>
+              <span>Деньги</span>
+              <h2>Операции</h2>
+            </div>
+          </div>
+          <div id="operationList" class="operation-list">
+            <div class="empty-state">Операций пока нет</div>
+          </div>
+        </section>
+
         <section class="withdraw-history" aria-label="История заявок">
           <div class="section-title">
             <div>
@@ -214,6 +226,38 @@
           <p>Приглашай людей и забирай бонус с их выполненных заданий.</p>
           <button id="copyRef" class="primary-btn" type="button">Скопировать ссылку</button>
         </article>
+
+        <section class="ref-stats" aria-label="Статистика рефералов">
+          <article>
+            <span>Друзей</span>
+            <strong id="refCount">0</strong>
+          </article>
+          <article>
+            <span>Заработано</span>
+            <strong id="refEarned">0 ₽</strong>
+          </article>
+          <article>
+            <span>Бонус</span>
+            <strong id="refPercent">10%</strong>
+          </article>
+        </section>
+
+        <section class="ref-link-card">
+          <span>Твоя ссылка</span>
+          <strong id="refLinkText">Открой через бота, чтобы получить ссылку</strong>
+        </section>
+
+        <section class="ref-list-section">
+          <div class="section-title">
+            <div>
+              <span>Команда</span>
+              <h2>Приглашенные</h2>
+            </div>
+          </div>
+          <div id="refList" class="ref-list">
+            <div class="empty-state">Пока никто не пришел по твоей ссылке</div>
+          </div>
+        </section>
       </section>
     </main>
   </div>
