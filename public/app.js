@@ -11,7 +11,8 @@ const state = {
   balance: 0,
   completed: 0,
   tasks: [],
-  surveysLoaded: false,
+  withdrawals: [],
+  withdrawSubmitting: false,
   checking: new Set(),
   stats: {
     online: 0,
@@ -58,18 +59,49 @@ function updateProfileFromData(data) {
 function updateProfileUI() {
   const progress = Math.min((state.balance / MIN_WITHDRAW) * 100, 100);
   const missing = Math.max(MIN_WITHDRAW - state.balance, 0);
+  const averageReward = state.tasks[0]?.reward ? Number(state.tasks[0].reward) : 0.25;
+  const tasksLeft = averageReward > 0 ? Math.ceil(missing / averageReward) : 0;
 
-  setText("#balance", formatMoney(state.balance));
+  setText("#balanceHero", formatMoney(state.balance));
   setText("#balanceBig", formatMoney(state.balance));
   setText("#balanceShort", formatMoney(state.balance, state.balance > 9 ? 0 : 2));
   setText("#completed", state.completed);
+  setText("#balanceCompleted", state.completed);
   setText("#cardHolder", String(user.first_name || "Guest").toUpperCase());
   setText("#withdrawHint", missing > 0
-    ? `До минимального вывода осталось ${formatMoney(missing)}`
-    : "Можно отправлять заявку на вывод");
+    ? `До вывода осталось ${formatMoney(missing)}`
+    : "Минимальная сумма набрана");
+  setText("#withdrawPercent", `${Math.round(progress)}%`);
+  setText("#withdrawTasksHint", missing > 0
+    ? `Примерно ${tasksLeft} заданий до первой выплаты`
+    : "Можно отправлять заявку на выплату");
+  setText("#lastReward", state.completed > 0 ? formatMoney(averageReward) : "0 ₽");
+  setText("#withdrawStatus", missing > 0 ? "Закрыт" : "Готово");
 
   const progressBar = $("#withdrawProgress");
   if (progressBar) progressBar.style.width = `${progress}%`;
+
+  const withdrawButton = $("#withdrawButton");
+  if (withdrawButton) {
+    withdrawButton.disabled = missing > 0;
+    withdrawButton.textContent = missing > 0 ? `Нужно еще ${formatMoney(missing)}` : "Вывести";
+  }
+
+  const withdrawAmount = $("#withdrawAmount");
+  if (withdrawAmount) {
+    withdrawAmount.max = String(Math.max(state.balance, 0));
+    withdrawAmount.placeholder = state.balance >= MIN_WITHDRAW ? formatMoney(Math.min(state.balance, MIN_WITHDRAW)).replace(" ₽", "") : "50.00";
+  }
+
+  const sendWithdrawRequest = $("#sendWithdrawRequest");
+  if (sendWithdrawRequest) {
+    sendWithdrawRequest.disabled = state.withdrawSubmitting || state.balance < MIN_WITHDRAW;
+    sendWithdrawRequest.textContent = state.withdrawSubmitting
+      ? "Отправляем"
+      : state.balance < MIN_WITHDRAW
+        ? `Нужно еще ${formatMoney(missing)}`
+        : "Создать заявку";
+  }
 }
 
 function updateStatsUI() {
@@ -120,6 +152,85 @@ async function loadStats() {
   }
 }
 
+function getWithdrawalStatusLabel(status) {
+  const labels = {
+    pending: "На проверке",
+    approved: "Одобрена",
+    paid: "Выплачена",
+    rejected: "Отклонена"
+  };
+
+  return labels[status] || status || "На проверке";
+}
+
+function formatDate(value) {
+  if (!value) return "";
+  const date = new Date(value);
+
+  if (Number.isNaN(date.getTime())) {
+    return "";
+  }
+
+  return new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit",
+    month: "short",
+    hour: "2-digit",
+    minute: "2-digit"
+  }).format(date);
+}
+
+function renderWithdrawals() {
+  const list = $("#withdrawHistory");
+  if (!list) return;
+
+  if (!state.withdrawals.length) {
+    list.replaceChildren(createEmptyState("Заявок пока нет"));
+    return;
+  }
+
+  const fragment = document.createDocumentFragment();
+
+  state.withdrawals.forEach((request) => {
+    const item = document.createElement("article");
+    item.className = `withdraw-item status-${request.status || "pending"}`;
+
+    const info = document.createElement("div");
+    const title = document.createElement("strong");
+    title.textContent = `${formatMoney(request.amount)} · ${request.method || "Вывод"}`;
+
+    const meta = document.createElement("span");
+    meta.textContent = `${getWithdrawalStatusLabel(request.status)}${request.created_at ? ` · ${formatDate(request.created_at)}` : ""}`;
+
+    const account = document.createElement("p");
+    account.textContent = request.account || "";
+
+    const status = document.createElement("b");
+    status.textContent = getWithdrawalStatusLabel(request.status);
+
+    info.append(title, meta, account);
+    item.append(info, status);
+    fragment.append(item);
+  });
+
+  list.replaceChildren(fragment);
+}
+
+async function loadWithdrawals() {
+  try {
+    const res = await fetch(`/api/withdrawals?${getUserParams()}`);
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось загрузить заявки");
+    }
+
+    state.withdrawals = Array.isArray(data.requests) ? data.requests : [];
+    renderWithdrawals();
+  } catch {
+    renderWithdrawals();
+  }
+}
+
 async function loadTasks() {
   const list = $("#taskList");
   const refresh = $("#refreshTasks");
@@ -136,6 +247,7 @@ async function loadTasks() {
     }
 
     state.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    updateProfileUI();
     renderTasks();
 
     if (data.warning) {
@@ -145,37 +257,6 @@ async function loadTasks() {
     list.replaceChildren(createEmptyState(error.message || "Не получилось загрузить подписки. Попробуй еще раз."));
   } finally {
     refresh?.classList.remove("loading");
-  }
-}
-
-async function loadSurveys() {
-  const wrap = $("#surveyFrameWrap");
-
-  if (!wrap || state.surveysLoaded) return;
-
-  wrap.replaceChildren(createEmptyState("Загружаем доступные опросы..."));
-
-  try {
-    const res = await fetch(`/api/cpx-frame?${getUserParams()}`);
-    const data = await res.json();
-
-    if (!res.ok || !data.url) {
-      throw new Error(data.error || "Опросы пока недоступны");
-    }
-
-    const frame = document.createElement("iframe");
-    frame.className = "survey-frame";
-    frame.title = "CPX Research surveys";
-    frame.src = data.url;
-    frame.width = "100%";
-    frame.height = "2000";
-    frame.frameBorder = "0";
-    frame.loading = "lazy";
-
-    wrap.replaceChildren(frame);
-    state.surveysLoaded = true;
-  } catch (error) {
-    wrap.replaceChildren(createEmptyState(error.message || "Не удалось загрузить опросы"));
   }
 }
 
@@ -295,14 +376,90 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
     btn.classList.add("active");
     document.getElementById(btn.dataset.page)?.classList.add("active");
-
-    if (btn.dataset.page === "surveys") {
-      loadSurveys();
-    }
   });
 });
 
 $("#refreshTasks")?.addEventListener("click", loadTasks);
+
+$("#withdrawButton")?.addEventListener("click", () => {
+  if (state.balance < MIN_WITHDRAW) {
+    tg?.showAlert?.(`Минимальная сумма вывода: ${formatMoney(MIN_WITHDRAW)}`);
+    return;
+  }
+
+  $("#withdrawForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#withdrawAmount")?.focus();
+});
+
+$("#focusWithdrawForm")?.addEventListener("click", () => {
+  $("#withdrawForm")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  $("#withdrawAmount")?.focus();
+});
+
+$("#withdrawForm")?.addEventListener("submit", async (event) => {
+  event.preventDefault();
+
+  if (state.withdrawSubmitting) return;
+
+  const amount = Number($("#withdrawAmount")?.value || 0);
+  const method = $("#withdrawMethod")?.value || "";
+  const account = $("#withdrawAccount")?.value || "";
+
+  if (amount < MIN_WITHDRAW) {
+    tg?.showAlert?.(`Минимальная сумма вывода: ${formatMoney(MIN_WITHDRAW)}`);
+    return;
+  }
+
+  if (amount > state.balance) {
+    tg?.showAlert?.("На балансе недостаточно средств");
+    return;
+  }
+
+  if (!account.trim()) {
+    tg?.showAlert?.("Укажи реквизиты для вывода");
+    return;
+  }
+
+  state.withdrawSubmitting = true;
+  updateProfileUI();
+
+  try {
+    const res = await fetch("/api/withdrawals", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        user_id: user.id,
+        amount,
+        method,
+        account
+      })
+    });
+    const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error || "Не удалось создать заявку");
+    }
+
+    if (data.profile) {
+      updateProfileFromData(data.profile);
+    }
+
+    if (data.request) {
+      state.withdrawals = [data.request, ...state.withdrawals];
+      renderWithdrawals();
+    }
+
+    $("#withdrawForm")?.reset();
+    tg?.showAlert?.(data.message || "Заявка создана");
+  } catch (error) {
+    tg?.showAlert?.(error.message || "Не удалось создать заявку");
+  } finally {
+    state.withdrawSubmitting = false;
+    updateProfileUI();
+  }
+});
 
 $("#copyRef")?.addEventListener("click", async () => {
   const link = `https://t.me/YOUR_BOT_USERNAME?start=${user.id}`;
@@ -320,4 +477,5 @@ updateProfileUI();
 updateStatsUI();
 loadProfile();
 loadStats();
+loadWithdrawals();
 loadTasks();

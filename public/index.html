@@ -36,7 +36,7 @@
           </div>
           <div>
             <span class="card-label">Доступно</span>
-            <strong id="balance">0.00 ₽</strong>
+            <strong id="balanceHero">0.00 ₽</strong>
           </div>
           <div class="card-row card-bottom">
             <span id="cardHolder">GUEST</span>
@@ -77,7 +77,6 @@
 
       <nav class="tabs" aria-label="Разделы">
         <button class="tab active" type="button" data-page="tasks">Задания</button>
-        <button class="tab" type="button" data-page="surveys">Опросы</button>
         <button class="tab" type="button" data-page="balance">Баланс</button>
         <button class="tab" type="button" data-page="ref">Друзья</button>
       </nav>
@@ -93,39 +92,119 @@
         <div id="taskList" class="task-list" aria-live="polite"></div>
       </section>
 
-      <section id="surveys" class="page">
-        <div class="section-title">
-          <div>
-            <span>CPX Research</span>
-            <h2>Опросы за награды</h2>
-          </div>
-        </div>
-        <div id="surveyFrameWrap" class="survey-frame-wrap" aria-live="polite">
-          <div class="empty-state">Загружаем доступные опросы...</div>
-        </div>
-      </section>
-
       <section id="balance" class="page">
-        <article class="panel balance-panel">
-          <span>Доступно к выводу</span>
-          <strong id="balanceBig">0.00 ₽</strong>
-          <div class="progress">
-            <span id="withdrawProgress"></span>
+        <article class="balance-wallet">
+          <div class="wallet-top">
+            <span>Доступно к выводу</span>
+            <strong id="balanceBig">0.00 ₽</strong>
+            <p id="withdrawHint">До минимального вывода осталось 50.00 ₽</p>
           </div>
-          <p id="withdrawHint">До минимального вывода осталось 50.00 ₽</p>
-          <button class="primary-btn" type="button">Вывести</button>
+
+          <div class="wallet-progress">
+            <div class="progress">
+              <span id="withdrawProgress"></span>
+            </div>
+            <div class="progress-labels">
+              <span>0 ₽</span>
+              <span>50 ₽</span>
+            </div>
+          </div>
+
+          <button id="withdrawButton" class="wallet-main-btn" type="button">Вывести</button>
         </article>
 
-        <div class="mini-list">
-          <article>
+        <div class="wallet-actions" aria-label="Действия с балансом">
+          <button id="focusWithdrawForm" type="button">
+            <span>↗</span>
+            <strong>Вывод</strong>
+          </button>
+          <button type="button">
+            <span>₽</span>
+            <strong>Реквизиты</strong>
+          </button>
+          <button type="button">
+            <span>?</span>
+            <strong>Помощь</strong>
+          </button>
+        </div>
+
+        <form id="withdrawForm" class="withdraw-form">
+          <div class="section-title">
+            <div>
+              <span>Заявка</span>
+              <h2>Вывод средств</h2>
+            </div>
+          </div>
+
+          <label>
+            <span>Сумма</span>
+            <input id="withdrawAmount" name="amount" type="number" min="50" step="0.01" inputmode="decimal" placeholder="50.00" />
+          </label>
+
+          <label>
+            <span>Способ вывода</span>
+            <select id="withdrawMethod" name="method">
+              <option value="card">Банковская карта</option>
+              <option value="sbp">СБП</option>
+              <option value="yoomoney">ЮMoney</option>
+              <option value="crypto">Crypto</option>
+            </select>
+          </label>
+
+          <label>
+            <span>Реквизиты</span>
+            <textarea id="withdrawAccount" name="account" rows="3" placeholder="Номер карты, телефон СБП или кошелек"></textarea>
+          </label>
+
+          <button id="sendWithdrawRequest" class="primary-btn" type="submit">Создать заявку</button>
+        </form>
+
+        <section class="balance-grid" aria-label="Условия вывода">
+          <article class="balance-metric">
             <span>Минимальная сумма</span>
             <strong>50 ₽</strong>
           </article>
-          <article>
-            <span>Статус выплат</span>
-            <strong>Скоро</strong>
+          <article class="balance-metric">
+            <span>Выполнено заданий</span>
+            <strong id="balanceCompleted">0</strong>
           </article>
-        </div>
+        </section>
+
+        <section class="balance-list" aria-label="Детали баланса">
+          <article>
+            <div>
+              <strong>Прогресс до вывода</strong>
+              <span id="withdrawTasksHint">Выполняй задания, чтобы открыть выплату</span>
+            </div>
+            <b id="withdrawPercent">0%</b>
+          </article>
+          <article>
+            <div>
+              <strong>Последнее начисление</strong>
+              <span>Награды появляются после успешной проверки подписки</span>
+            </div>
+            <b id="lastReward">0 ₽</b>
+          </article>
+          <article>
+            <div>
+              <strong>Статус выплат</strong>
+              <span>Вывод откроется после достижения минимальной суммы</span>
+            </div>
+            <b id="withdrawStatus">Закрыт</b>
+          </article>
+        </section>
+
+        <section class="withdraw-history" aria-label="История заявок">
+          <div class="section-title">
+            <div>
+              <span>История</span>
+              <h2>Последние заявки</h2>
+            </div>
+          </div>
+          <div id="withdrawHistory" class="withdraw-list">
+            <div class="empty-state">Заявок пока нет</div>
+          </div>
+        </section>
       </section>
 
       <section id="ref" class="page">

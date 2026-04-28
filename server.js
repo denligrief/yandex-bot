@@ -1,7 +1,6 @@
 import "dotenv/config";
 import express from "express";
 import cors from "cors";
-import crypto from "crypto";
 import path from "path";
 import { fileURLToPath } from "url";
 import { Telegraf, Markup } from "telegraf";
@@ -14,16 +13,14 @@ const BOT_TOKEN = process.env.BOT_TOKEN;
 const WEBAPP_URL = process.env.WEBAPP_URL;
 const PORT = process.env.PORT || 3000;
 const BOT_POLLING = process.env.BOT_POLLING !== "false";
+const ADMIN_TOKEN = process.env.ADMIN_TOKEN || "";
 
 const SUBGRAM_API_KEY = process.env.SUBGRAM_API_KEY;
 const SUBGRAM_API_BASE = process.env.SUBGRAM_API_BASE || "https://api.subgram.org";
 const SUBGRAM_ACTION = process.env.SUBGRAM_ACTION || "task";
 const SUBGRAM_MAX_SPONSORS = Number(process.env.SUBGRAM_MAX_SPONSORS || 10);
 const SUBGRAM_REWARD = Number(process.env.SUBGRAM_REWARD || 0.25);
-
-const CPX_APP_ID = process.env.CPX_APP_ID || "";
-const CPX_SECURE_HASH = process.env.CPX_SECURE_HASH || "";
-const CPX_FRAME_BASE = process.env.CPX_FRAME_BASE || "https://offers.cpx-research.com/index.php";
+const MIN_WITHDRAW_AMOUNT = Number(process.env.MIN_WITHDRAW_AMOUNT || 50);
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const DATABASE_SSL = process.env.DATABASE_SSL !== "false";
@@ -38,7 +35,8 @@ const pool = DATABASE_URL
 const memoryStore = {
   users: new Map(),
   completedTasks: new Set(),
-  cpxTransactions: new Map()
+  withdrawalRequests: [],
+  nextWithdrawalId: 1
 };
 
 if (BOT_POLLING && !BOT_TOKEN) {
@@ -75,6 +73,23 @@ function makeUserFromSource(source) {
     first_name: source.first_name || null,
     username: source.username || null
   };
+}
+
+function requireAdmin(req, res, next) {
+  if (!ADMIN_TOKEN) {
+    return res.status(503).json({ error: "ADMIN_TOKEN is not configured" });
+  }
+
+  const header = req.get("authorization") || "";
+  const token = header.startsWith("Bearer ")
+    ? header.slice("Bearer ".length)
+    : String(req.query.admin_token || req.body?.admin_token || "");
+
+  if (token !== ADMIN_TOKEN) {
+    return res.status(401).json({ error: "admin token required" });
+  }
+
+  next();
 }
 
 function normalizeProfile(row, userId) {
@@ -119,18 +134,14 @@ async function initDatabase() {
   `);
 
   await pool.query(`
-    CREATE TABLE IF NOT EXISTS cpx_transactions (
-      trans_id TEXT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS withdrawal_requests (
+      id BIGSERIAL PRIMARY KEY,
       telegram_id BIGINT NOT NULL REFERENCES users(telegram_id) ON DELETE CASCADE,
-      status INTEGER NOT NULL,
-      type TEXT,
-      amount_local NUMERIC(12, 2) NOT NULL DEFAULT 0,
-      amount_usd NUMERIC(12, 4) NOT NULL DEFAULT 0,
-      subid_1 TEXT,
-      subid_2 TEXT,
-      ip_click TEXT,
-      credited BOOLEAN NOT NULL DEFAULT FALSE,
-      raw_payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+      amount NUMERIC(12, 2) NOT NULL,
+      method TEXT NOT NULL,
+      account TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'pending',
+      comment TEXT,
       created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
     );
@@ -295,87 +306,98 @@ async function completeTask({ user, taskKey, taskUrl, source, reward }) {
   }
 }
 
-function normalizeCpxPayload(req) {
+function normalizeWithdrawal(row) {
   return {
-    status: String(req.query.status || req.body?.status || ""),
-    trans_id: String(req.query.trans_id || req.body?.trans_id || ""),
-    user_id: String(req.query.user_id || req.body?.user_id || ""),
-    subid_1: String(req.query.subid_1 || req.body?.subid_1 || ""),
-    subid_2: String(req.query.subid_2 || req.body?.subid_2 || ""),
-    amount_local: String(req.query.amount_local || req.body?.amount_local || "0"),
-    amount_usd: String(req.query.amount_usd || req.body?.amount_usd || "0"),
-    ip_click: String(req.query.ip_click || req.body?.ip_click || ""),
-    type: String(req.query.type || req.body?.type || ""),
-    secure_hash: String(req.query.secure_hash || req.body?.secure_hash || req.query.hash || req.body?.hash || "")
+    id: Number(row.id),
+    user_id: Number(row.telegram_id || row.user_id),
+    amount: Number(row.amount || 0),
+    method: row.method,
+    account: row.account,
+    status: row.status || "pending",
+    comment: row.comment || null,
+    created_at: row.created_at
   };
 }
 
-function validateCpxPostback(payload) {
-  if (!CPX_SECURE_HASH) {
-    return true;
-  }
-
-  const expected = crypto
-    .createHash("md5")
-    .update(`${payload.trans_id}-${CPX_SECURE_HASH}`)
-    .digest("hex");
-
-  return payload.secure_hash.toLowerCase() === expected;
+function normalizeAdminWithdrawal(row) {
+  return {
+    ...normalizeWithdrawal(row),
+    first_name: row.first_name || null,
+    username: row.username || null
+  };
 }
 
-function parseMoney(value) {
+function parseWithdrawAmount(value) {
   const amount = Number(String(value).replace(",", "."));
-  return Number.isFinite(amount) ? amount : null;
+  return Number.isFinite(amount) ? Math.floor(amount * 100) / 100 : null;
 }
 
-async function processCpxPostback(payload) {
-  const userId = toTelegramId(payload.user_id);
-  const status = Number(payload.status);
-  const amountLocal = parseMoney(payload.amount_local);
-  const amountUsd = parseMoney(payload.amount_usd) || 0;
-
-  if (!payload.trans_id || !userId || ![1, 2].includes(status) || amountLocal === null) {
-    return { ok: false, code: 400, message: "invalid CPX payload" };
+async function getWithdrawalRequests(userId) {
+  if (!pool) {
+    return memoryStore.withdrawalRequests
+      .filter((request) => request.user_id === userId)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 20)
+      .map(normalizeWithdrawal);
   }
 
-  if (!validateCpxPostback(payload)) {
-    return { ok: false, code: 403, message: "invalid secure_hash" };
-  }
+  const result = await pool.query(
+    `
+      SELECT id, telegram_id, amount, method, account, status, comment, created_at
+      FROM withdrawal_requests
+      WHERE telegram_id = $1
+      ORDER BY created_at DESC
+      LIMIT 20
+    `,
+    [userId]
+  );
 
-  const user = { user_id: userId, first_name: null, username: null };
+  return result.rows.map(normalizeWithdrawal);
+}
+
+async function createWithdrawalRequest({ user, amount, method, account }) {
   await ensureUser(user);
 
+  const requestAmount = parseWithdrawAmount(amount);
+  const cleanMethod = String(method || "").trim().slice(0, 40);
+  const cleanAccount = String(account || "").trim().slice(0, 160);
+
+  if (!requestAmount || requestAmount < MIN_WITHDRAW_AMOUNT) {
+    return { error: `Минимальная сумма вывода ${MIN_WITHDRAW_AMOUNT} ₽`, code: 400 };
+  }
+
+  if (!cleanMethod || !cleanAccount) {
+    return { error: "Укажи способ вывода и реквизиты", code: 400 };
+  }
+
   if (!pool) {
-    const currentTx = memoryStore.cpxTransactions.get(payload.trans_id);
-    const currentUser = memoryStore.users.get(userId);
-    let balanceDelta = 0;
-    let completedDelta = 0;
+    const current = memoryStore.users.get(user.user_id);
 
-    if (status === 1 && !currentTx?.credited) {
-      balanceDelta = amountLocal;
-      completedDelta = 1;
+    if (Number(current.balance || 0) < requestAmount) {
+      return { error: "Недостаточно средств на балансе", code: 400 };
     }
 
-    if (status === 2 && currentTx?.credited) {
-      balanceDelta = -Number(currentTx.amount_local || amountLocal);
-      completedDelta = -1;
-    }
+    current.balance = Math.max(Number(current.balance || 0) - requestAmount, 0);
+    current.updated_at = Date.now();
 
-    currentUser.balance = Math.max(Number(currentUser.balance || 0) + balanceDelta, 0);
-    currentUser.completed = Math.max(Number(currentUser.completed || 0) + completedDelta, 0);
-    currentUser.updated_at = Date.now();
+    const request = {
+      id: memoryStore.nextWithdrawalId++,
+      user_id: user.user_id,
+      amount: requestAmount,
+      method: cleanMethod,
+      account: cleanAccount,
+      status: "pending",
+      comment: null,
+      created_at: new Date().toISOString()
+    };
 
-    memoryStore.users.set(userId, currentUser);
-    memoryStore.cpxTransactions.set(payload.trans_id, {
-      ...payload,
-      user_id: userId,
-      status,
-      amount_local: amountLocal,
-      amount_usd: amountUsd,
-      credited: status === 1
-    });
+    memoryStore.withdrawalRequests.push(request);
+    memoryStore.users.set(user.user_id, current);
 
-    return { ok: true, credited: status === 1 && balanceDelta > 0, reversed: status === 2 && balanceDelta < 0 };
+    return {
+      request: normalizeWithdrawal(request),
+      profile: normalizeProfile(current, user.user_id)
+    };
   }
 
   const client = await pool.connect();
@@ -383,76 +405,210 @@ async function processCpxPostback(payload) {
   try {
     await client.query("BEGIN");
 
-    const existing = await client.query(
-      "SELECT status, amount_local, credited FROM cpx_transactions WHERE trans_id = $1 FOR UPDATE",
-      [payload.trans_id]
+    const current = await client.query(
+      "SELECT balance, completed, referral_earned FROM users WHERE telegram_id = $1 FOR UPDATE",
+      [user.user_id]
     );
 
-    const row = existing.rows[0];
-    let balanceDelta = 0;
-    let completedDelta = 0;
-    let credited = row?.credited || false;
+    const balance = Number(current.rows[0]?.balance || 0);
 
-    if (status === 1 && !credited) {
-      balanceDelta = amountLocal;
-      completedDelta = 1;
-      credited = true;
+    if (balance < requestAmount) {
+      await client.query("ROLLBACK");
+      return { error: "Недостаточно средств на балансе", code: 400 };
     }
 
-    if (status === 2 && credited) {
-      balanceDelta = -Number(row?.amount_local || amountLocal);
-      completedDelta = -1;
-      credited = false;
-    }
-
-    await client.query(
+    const updated = await client.query(
       `
-        INSERT INTO cpx_transactions (
-          trans_id, telegram_id, status, type, amount_local, amount_usd,
-          subid_1, subid_2, ip_click, credited, raw_payload
-        )
-        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-        ON CONFLICT (trans_id) DO UPDATE SET
-          status = EXCLUDED.status,
-          type = EXCLUDED.type,
-          amount_usd = EXCLUDED.amount_usd,
-          subid_1 = EXCLUDED.subid_1,
-          subid_2 = EXCLUDED.subid_2,
-          ip_click = EXCLUDED.ip_click,
-          credited = EXCLUDED.credited,
-          raw_payload = EXCLUDED.raw_payload,
-          updated_at = NOW()
+        UPDATE users
+        SET balance = balance - $2,
+            updated_at = NOW()
+        WHERE telegram_id = $1
+        RETURNING balance, completed, referral_earned
       `,
-      [
-        payload.trans_id,
-        userId,
-        status,
-        payload.type,
-        amountLocal,
-        amountUsd,
-        payload.subid_1,
-        payload.subid_2,
-        payload.ip_click,
-        credited,
-        JSON.stringify(payload)
-      ]
+      [user.user_id, requestAmount]
     );
 
-    if (balanceDelta !== 0 || completedDelta !== 0) {
+    const inserted = await client.query(
+      `
+        INSERT INTO withdrawal_requests (telegram_id, amount, method, account)
+        VALUES ($1, $2, $3, $4)
+        RETURNING id, telegram_id, amount, method, account, status, comment, created_at
+      `,
+      [user.user_id, requestAmount, cleanMethod, cleanAccount]
+    );
+
+    await client.query("COMMIT");
+
+    return {
+      request: normalizeWithdrawal(inserted.rows[0]),
+      profile: normalizeProfile(updated.rows[0], user.user_id)
+    };
+  } catch (error) {
+    await client.query("ROLLBACK");
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+async function addBalance({ user, amount, reason }) {
+  await ensureUser(user);
+
+  const addAmount = parseWithdrawAmount(amount);
+
+  if (!addAmount || addAmount <= 0) {
+    return { error: "amount must be greater than 0", code: 400 };
+  }
+
+  if (!pool) {
+    const current = memoryStore.users.get(user.user_id);
+    current.balance = Number(current.balance || 0) + addAmount;
+    current.updated_at = Date.now();
+    memoryStore.users.set(user.user_id, current);
+    return { profile: normalizeProfile(current, user.user_id), reason: reason || null };
+  }
+
+  const result = await pool.query(
+    `
+      UPDATE users
+      SET balance = balance + $2,
+          updated_at = NOW()
+      WHERE telegram_id = $1
+      RETURNING balance, completed, referral_earned
+    `,
+    [user.user_id, addAmount]
+  );
+
+  return { profile: normalizeProfile(result.rows[0], user.user_id), reason: reason || null };
+}
+
+async function getAdminWithdrawals(status = "pending") {
+  if (!pool) {
+    return memoryStore.withdrawalRequests
+      .filter((request) => !status || status === "all" || request.status === status)
+      .sort((a, b) => b.id - a.id)
+      .slice(0, 100)
+      .map((request) => {
+        const user = memoryStore.users.get(request.user_id) || {};
+        return normalizeAdminWithdrawal({
+          ...request,
+          telegram_id: request.user_id,
+          first_name: user.first_name,
+          username: user.username
+        });
+      });
+  }
+
+  const params = [];
+  const where = status && status !== "all" ? "WHERE wr.status = $1" : "";
+
+  if (where) {
+    params.push(status);
+  }
+
+  const result = await pool.query(
+    `
+      SELECT
+        wr.id, wr.telegram_id, wr.amount, wr.method, wr.account, wr.status,
+        wr.comment, wr.created_at, u.first_name, u.username
+      FROM withdrawal_requests wr
+      JOIN users u ON u.telegram_id = wr.telegram_id
+      ${where}
+      ORDER BY wr.created_at DESC
+      LIMIT 100
+    `,
+    params
+  );
+
+  return result.rows.map(normalizeAdminWithdrawal);
+}
+
+async function updateWithdrawalStatus({ id, status, comment }) {
+  const allowedStatuses = new Set(["pending", "approved", "paid", "rejected"]);
+  const requestId = Number(id);
+  const cleanComment = String(comment || "").trim().slice(0, 300) || null;
+
+  if (!Number.isSafeInteger(requestId) || requestId <= 0) {
+    return { error: "valid withdrawal id required", code: 400 };
+  }
+
+  if (!allowedStatuses.has(status)) {
+    return { error: "invalid status", code: 400 };
+  }
+
+  if (!pool) {
+    const request = memoryStore.withdrawalRequests.find((item) => item.id === requestId);
+
+    if (!request) {
+      return { error: "withdrawal not found", code: 404 };
+    }
+
+    if (request.status === "rejected" && status !== "rejected") {
+      return { error: "rejected withdrawal cannot be reopened", code: 400 };
+    }
+
+    if (status === "rejected" && request.status !== "rejected") {
+      const user = memoryStore.users.get(request.user_id);
+      user.balance = Number(user.balance || 0) + Number(request.amount || 0);
+      user.updated_at = Date.now();
+      memoryStore.users.set(request.user_id, user);
+    }
+
+    request.status = status;
+    request.comment = cleanComment;
+    request.updated_at = new Date().toISOString();
+
+    return { request: normalizeWithdrawal(request) };
+  }
+
+  const client = await pool.connect();
+
+  try {
+    await client.query("BEGIN");
+
+    const current = await client.query(
+      "SELECT id, telegram_id, amount, method, account, status, comment, created_at FROM withdrawal_requests WHERE id = $1 FOR UPDATE",
+      [requestId]
+    );
+
+    const request = current.rows[0];
+
+    if (!request) {
+      await client.query("ROLLBACK");
+      return { error: "withdrawal not found", code: 404 };
+    }
+
+    if (request.status === "rejected" && status !== "rejected") {
+      await client.query("ROLLBACK");
+      return { error: "rejected withdrawal cannot be reopened", code: 400 };
+    }
+
+    if (status === "rejected" && request.status !== "rejected") {
       await client.query(
         `
           UPDATE users
-          SET balance = GREATEST(balance + $2, 0),
-              completed = GREATEST(completed + $3, 0),
+          SET balance = balance + $2,
               updated_at = NOW()
           WHERE telegram_id = $1
         `,
-        [userId, balanceDelta, completedDelta]
+        [request.telegram_id, request.amount]
       );
     }
 
+    const updated = await client.query(
+      `
+        UPDATE withdrawal_requests
+        SET status = $2,
+            comment = $3,
+            updated_at = NOW()
+        WHERE id = $1
+        RETURNING id, telegram_id, amount, method, account, status, comment, created_at
+      `,
+      [requestId, status, cleanComment]
+    );
+
     await client.query("COMMIT");
-    return { ok: true, credited: status === 1 && balanceDelta > 0, reversed: status === 2 && balanceDelta < 0 };
+    return { request: normalizeWithdrawal(updated.rows[0]) };
   } catch (error) {
     await client.query("ROLLBACK");
     throw error;
@@ -562,37 +718,6 @@ function makeDemoTasks() {
   ];
 }
 
-function buildCpxFrameUrl(source) {
-  if (!CPX_APP_ID) {
-    return null;
-  }
-
-  const user = makeUserFromSource(source);
-
-  if (!user) {
-    return null;
-  }
-
-  const extUserId = String(user.user_id);
-  const params = new URLSearchParams({
-    app_id: CPX_APP_ID,
-    ext_user_id: extUserId,
-    username: user.username || user.first_name || `user_${extUserId}`,
-    email: "",
-    subid_1: "telegram",
-    subid_2: ""
-  });
-
-  if (CPX_SECURE_HASH) {
-    params.set(
-      "secure_hash",
-      crypto.createHash("md5").update(`${extUserId}-${CPX_SECURE_HASH}`).digest("hex")
-    );
-  }
-
-  return `${CPX_FRAME_BASE}?${params.toString()}`;
-}
-
 bot?.start(async (ctx) => {
   const name = ctx.from?.first_name || "друг";
 
@@ -638,48 +763,106 @@ app.get("/api/profile", async (req, res) => {
   }
 });
 
-app.get("/api/stats", async (req, res) => {
-  try {
-    res.json(await getServiceStats());
-  } catch (error) {
-    res.status(500).json({ error: "Не удалось загрузить статистику", details: error.message });
-  }
-});
-
-app.get("/api/cpx-frame", async (req, res) => {
+app.get("/api/withdrawals", async (req, res) => {
   const user = makeUserFromSource(req.query);
-  const frameUrl = buildCpxFrameUrl(req.query);
 
   if (!user) {
     return res.status(400).json({ error: "valid user_id required" });
   }
 
-  if (!frameUrl) {
-    return res.status(503).json({ error: "CPX_APP_ID is not configured" });
-  }
-
   try {
     await ensureUser(user);
-    res.json({ url: frameUrl });
+    res.json({ requests: await getWithdrawalRequests(user.user_id) });
   } catch (error) {
-    res.status(500).json({ error: "Не удалось открыть опросы", details: error.message });
+    res.status(500).json({ error: "Не удалось загрузить заявки", details: error.message });
   }
 });
 
-app.all("/api/cpx-postback", async (req, res) => {
-  const payload = normalizeCpxPayload(req);
+app.post("/api/withdrawals", async (req, res) => {
+  const user = makeUserFromSource(req.body);
+
+  if (!user) {
+    return res.status(400).json({ error: "valid user_id required" });
+  }
 
   try {
-    const result = await processCpxPostback(payload);
+    const result = await createWithdrawalRequest({
+      user,
+      amount: req.body.amount,
+      method: req.body.method,
+      account: req.body.account
+    });
 
-    if (!result.ok) {
-      return res.status(result.code || 400).send(result.message || "error");
+    if (result.error) {
+      return res.status(result.code || 400).json({ error: result.error });
     }
 
-    res.send("OK");
+    res.json({
+      ok: true,
+      message: "Заявка на вывод создана",
+      request: result.request,
+      profile: result.profile
+    });
   } catch (error) {
-    console.error("CPX postback failed", error);
-    res.status(500).send("error");
+    res.status(500).json({ error: "Не удалось создать заявку", details: error.message });
+  }
+});
+
+app.get("/api/admin/withdrawals", requireAdmin, async (req, res) => {
+  try {
+    res.json({ requests: await getAdminWithdrawals(String(req.query.status || "pending")) });
+  } catch (error) {
+    res.status(500).json({ error: "Не удалось загрузить заявки", details: error.message });
+  }
+});
+
+app.post("/api/admin/withdrawals/:id/status", requireAdmin, async (req, res) => {
+  try {
+    const result = await updateWithdrawalStatus({
+      id: req.params.id,
+      status: String(req.body.status || ""),
+      comment: req.body.comment
+    });
+
+    if (result.error) {
+      return res.status(result.code || 400).json({ error: result.error });
+    }
+
+    res.json({ ok: true, request: result.request });
+  } catch (error) {
+    res.status(500).json({ error: "Не удалось обновить заявку", details: error.message });
+  }
+});
+
+app.post("/api/admin/balance", requireAdmin, async (req, res) => {
+  const user = makeUserFromSource(req.body);
+
+  if (!user) {
+    return res.status(400).json({ error: "valid user_id required" });
+  }
+
+  try {
+    const result = await addBalance({
+      user,
+      amount: req.body.amount,
+      reason: req.body.reason
+    });
+
+    if (result.error) {
+      return res.status(result.code || 400).json({ error: result.error });
+    }
+
+    res.json({ ok: true, profile: result.profile });
+  } catch (error) {
+    res.status(500).json({ error: "Не удалось начислить баланс", details: error.message });
+  }
+});
+
+app.get("/api/stats", async (req, res) => {
+  try {
+    res.json(await getServiceStats());
+  } catch (error) {
+    res.status(500).json({ error: "Не удалось загрузить статистику", details: error.message });
   }
 });
 
