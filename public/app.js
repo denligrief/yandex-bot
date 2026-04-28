@@ -3,7 +3,7 @@ tg?.ready();
 tg?.expand();
 
 const user = tg?.initDataUnsafe?.user || {
-  id: "demo_user",
+  id: 123456789,
   first_name: "Гость"
 };
 
