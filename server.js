@@ -26,6 +26,9 @@ const SUBGRAM_MAX_SPONSORS = Number(process.env.SUBGRAM_MAX_SPONSORS || 10);
 const SUBGRAM_REWARD = Number(process.env.SUBGRAM_REWARD || 0.25);
 const MIN_WITHDRAW_AMOUNT = Number(process.env.MIN_WITHDRAW_AMOUNT || 50);
 const REFERRAL_PERCENT = Number(process.env.REFERRAL_PERCENT || 10);
+const FAKE_ONLINE_ENABLED = process.env.FAKE_ONLINE_ENABLED !== "false";
+const FAKE_ONLINE_MIN = Number(process.env.FAKE_ONLINE_MIN || 18);
+const FAKE_ONLINE_MAX = Number(process.env.FAKE_ONLINE_MAX || 64);
 
 const DATABASE_URL = process.env.DATABASE_URL;
 const DATABASE_SSL = process.env.DATABASE_SSL !== "false";
@@ -369,6 +372,26 @@ async function getCompletedTaskKeys(userId) {
 }
 
 async function getServiceStats() {
+  const makeDisplayOnline = (realOnline, totalUsers) => {
+    if (!FAKE_ONLINE_ENABLED) {
+      return realOnline;
+    }
+
+    const min = Math.max(0, FAKE_ONLINE_MIN);
+    const max = Math.max(min, FAKE_ONLINE_MAX);
+    const now = new Date();
+    const hour = now.getUTCHours();
+    const minuteBucket = Math.floor(now.getUTCMinutes() / 5);
+    const dayWave = Math.sin(((hour + 3) / 24) * Math.PI);
+    const bucketWave = Math.sin((minuteBucket / 12) * Math.PI * 2);
+    const target = min
+      + Math.round((max - min) * (0.42 + dayWave * 0.38 + bucketWave * 0.12));
+    const cappedTarget = Math.min(max, Math.max(min, target));
+    const growthBoost = Math.min(Math.floor(totalUsers / 7), Math.max(0, max - cappedTarget));
+
+    return Math.max(realOnline, Math.min(max, cappedTarget + growthBoost));
+  };
+
   if (!pool) {
     const now = Date.now();
     const users = [...memoryStore.users.values()];
@@ -376,10 +399,12 @@ async function getServiceStats() {
       const updatedAt = user.updated_at || 0;
       return now - updatedAt < 5 * 60 * 1000;
     }).length;
-    const totalEarned = users.reduce((sum, user) => sum + Number(user.balance || 0), 0);
+    const totalEarned = memoryStore.balanceOperations
+      .filter((operation) => Number(operation.amount || 0) > 0)
+      .reduce((sum, operation) => sum + Number(operation.amount || 0), 0);
 
     return {
-      online,
+      online: makeDisplayOnline(online, users.length),
       total_users: users.length,
       total_earned: totalEarned
     };
@@ -389,12 +414,15 @@ async function getServiceStats() {
     SELECT
       (SELECT COUNT(*)::int FROM users WHERE updated_at > NOW() - INTERVAL '5 minutes') AS online,
       (SELECT COUNT(*)::int FROM users) AS total_users,
-      COALESCE((SELECT SUM(reward) FROM completed_tasks), 0)::numeric AS total_earned
+      COALESCE((SELECT SUM(amount) FROM balance_operations WHERE amount > 0), 0)::numeric AS total_earned
   `);
 
+  const realOnline = Number(result.rows[0]?.online || 0);
+  const totalUsers = Number(result.rows[0]?.total_users || 0);
+
   return {
-    online: Number(result.rows[0]?.online || 0),
-    total_users: Number(result.rows[0]?.total_users || 0),
+    online: makeDisplayOnline(realOnline, totalUsers),
+    total_users: totalUsers,
     total_earned: Number(result.rows[0]?.total_earned || 0)
   };
 }

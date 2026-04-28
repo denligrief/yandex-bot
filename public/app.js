@@ -584,6 +584,7 @@ $("#withdrawForm")?.addEventListener("submit", async (event) => {
       renderWithdrawals();
     }
     await loadOperations();
+    await loadStats();
 
     $("#withdrawForm")?.reset();
     tg?.showAlert?.(data.message || "Заявка создана");
