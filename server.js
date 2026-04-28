@@ -66,7 +66,7 @@ const bot = BOT_POLLING ? new Telegraf(BOT_TOKEN) : null;
 
 function toTelegramId(value) {
   const id = Number(value);
-  return Number.isSafeInteger(id) ? id : null;
+  return Number.isSafeInteger(id) && id > 0 ? id : null;
 }
 
 function makeUserFromSource(source) {
@@ -303,14 +303,18 @@ async function ensureUser(user) {
     return memoryStore.users.get(user.user_id);
   }
 
-  if (user.referrer_id && user.referrer_id !== user.user_id) {
+  const referrerId = user.referrer_id && user.referrer_id !== user.user_id
+    ? user.referrer_id
+    : null;
+
+  if (referrerId) {
     await pool.query(
       `
         INSERT INTO users (telegram_id)
         VALUES ($1)
         ON CONFLICT (telegram_id) DO NOTHING
       `,
-      [user.referrer_id]
+      [referrerId]
     );
   }
 
@@ -327,7 +331,7 @@ async function ensureUser(user) {
         telegram_id, balance, completed, referral_earned, referrer_id,
         (SELECT COUNT(*)::int FROM users referrals WHERE referrals.referrer_id = users.telegram_id) AS referrals_count
     `,
-    [user.user_id, user.first_name, user.username, user.referrer_id]
+    [user.user_id, user.first_name, user.username, referrerId]
   );
 
   return normalizeProfile(result.rows[0], user.user_id);
