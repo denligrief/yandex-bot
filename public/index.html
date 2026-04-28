@@ -77,6 +77,7 @@
 
       <nav class="tabs" aria-label="Разделы">
         <button class="tab active" type="button" data-page="tasks">Задания</button>
+        <button class="tab" type="button" data-page="surveys">Опросы</button>
         <button class="tab" type="button" data-page="balance">Баланс</button>
         <button class="tab" type="button" data-page="ref">Друзья</button>
       </nav>
@@ -90,6 +91,18 @@
           <span id="taskCount" class="counter">0</span>
         </div>
         <div id="taskList" class="task-list" aria-live="polite"></div>
+      </section>
+
+      <section id="surveys" class="page">
+        <div class="section-title">
+          <div>
+            <span>CPX Research</span>
+            <h2>Опросы за награды</h2>
+          </div>
+        </div>
+        <div id="surveyFrameWrap" class="survey-frame-wrap" aria-live="polite">
+          <div class="empty-state">Загружаем доступные опросы...</div>
+        </div>
       </section>
 
       <section id="balance" class="page">

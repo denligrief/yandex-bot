@@ -11,6 +11,7 @@ const state = {
   balance: 0,
   completed: 0,
   tasks: [],
+  surveysLoaded: false,
   checking: new Set(),
   stats: {
     online: 0,
@@ -147,6 +148,37 @@ async function loadTasks() {
   }
 }
 
+async function loadSurveys() {
+  const wrap = $("#surveyFrameWrap");
+
+  if (!wrap || state.surveysLoaded) return;
+
+  wrap.replaceChildren(createEmptyState("Загружаем доступные опросы..."));
+
+  try {
+    const res = await fetch(`/api/cpx-frame?${getUserParams()}`);
+    const data = await res.json();
+
+    if (!res.ok || !data.url) {
+      throw new Error(data.error || "Опросы пока недоступны");
+    }
+
+    const frame = document.createElement("iframe");
+    frame.className = "survey-frame";
+    frame.title = "CPX Research surveys";
+    frame.src = data.url;
+    frame.width = "100%";
+    frame.height = "2000";
+    frame.frameBorder = "0";
+    frame.loading = "lazy";
+
+    wrap.replaceChildren(frame);
+    state.surveysLoaded = true;
+  } catch (error) {
+    wrap.replaceChildren(createEmptyState(error.message || "Не удалось загрузить опросы"));
+  }
+}
+
 function renderTasks() {
   const list = $("#taskList");
   setText("#taskCount", state.tasks.length);
@@ -263,6 +295,10 @@ document.querySelectorAll(".tab").forEach((btn) => {
 
     btn.classList.add("active");
     document.getElementById(btn.dataset.page)?.classList.add("active");
+
+    if (btn.dataset.page === "surveys") {
+      loadSurveys();
+    }
   });
 });
 

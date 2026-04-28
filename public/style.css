@@ -340,7 +340,7 @@ h1 {
   top: 0;
   z-index: 3;
   display: grid;
-  grid-template-columns: repeat(3, 1fr);
+  grid-template-columns: repeat(4, 1fr);
   gap: 4px;
   margin: 14px 0 18px;
   padding: 4px;
@@ -569,6 +569,22 @@ h2 {
   line-height: 1.4;
 }
 
+.survey-frame-wrap {
+  overflow: hidden;
+  min-height: 620px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: #fff;
+}
+
+.survey-frame {
+  display: block;
+  width: 100%;
+  min-height: 2000px;
+  border: 0;
+  background: #fff;
+}
+
 @keyframes spin {
   to {
     transform: rotate(360deg);
@@ -595,5 +611,9 @@ h2 {
   .task-actions,
   .mini-list {
     grid-template-columns: 1fr;
+  }
+
+  .tabs {
+    grid-template-columns: repeat(2, 1fr);
   }
 }
