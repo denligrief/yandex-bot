@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0b0c10" />
+  <title>Subzon Admin</title>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="admin-shell">
+    <header class="admin-header">
+      <div>
+        <span>Subzon</span>
+        <h1>Админ-панель</h1>
+      </div>
+      <button id="refreshAdmin" class="secondary-btn" type="button">Обновить</button>
+    </header>
+
+    <section class="admin-card">
+      <div class="section-title">
+        <div>
+          <span>Доступ</span>
+          <h2>ADMIN_TOKEN</h2>
+        </div>
+      </div>
+      <form id="adminTokenForm" class="admin-token-form">
+        <input id="adminToken" type="password" placeholder="Вставь ADMIN_TOKEN" autocomplete="off" />
+        <button class="primary-btn" type="submit">Войти</button>
+      </form>
+    </section>
+
+    <section class="admin-card">
+      <div class="section-title">
+        <div>
+          <span>Тесты</span>
+          <h2>Выдать баланс</h2>
+        </div>
+      </div>
+      <form id="grantBalanceForm" class="admin-grid-form">
+        <label>
+          <span>Telegram ID</span>
+          <input id="grantUserId" type="number" placeholder="123456789" />
+        </label>
+        <label>
+          <span>Сумма</span>
+          <input id="grantAmount" type="number" min="0.01" step="0.01" placeholder="100" />
+        </label>
+        <label class="wide">
+          <span>Комментарий</span>
+          <input id="grantReason" type="text" placeholder="test" />
+        </label>
+        <button class="primary-btn wide" type="submit">Начислить</button>
+      </form>
+    </section>
+
+    <section class="admin-card">
+      <div class="admin-toolbar">
+        <div class="section-title">
+          <div>
+            <span>Вывод</span>
+            <h2>Заявки</h2>
+          </div>
+        </div>
+        <select id="withdrawStatusFilter">
+          <option value="pending">На проверке</option>
+          <option value="all">Все</option>
+          <option value="approved">Одобрены</option>
+          <option value="paid">Выплачены</option>
+          <option value="rejected">Отклонены</option>
+        </select>
+      </div>
+
+      <div id="adminMessage" class="admin-message"></div>
+      <div id="adminWithdrawals" class="admin-withdrawals">
+        <div class="empty-state">Войди по ADMIN_TOKEN</div>
+      </div>
+    </section>
+  </div>
+
+  <script src="/admin.js"></script>
+</body>
+</html>
