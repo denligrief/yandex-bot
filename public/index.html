@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+  <title>Yandex Jobs Mini App</title>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/style.css" />
+</head>
+<body>
+  <div class="app">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">YandexJobs</p>
+        <h1>Зарабатывай<br>на заданиях</h1>
+      </div>
+      <div class="coin">₽</div>
+    </header>
+
+    <section class="stats-grid">
+      <div class="card">
+        <span>Баланс</span>
+        <strong id="balance">0.00₽</strong>
+      </div>
+      <div class="card">
+        <span>Заданий</span>
+        <strong id="completed">0</strong>
+      </div>
+    </section>
+
+    <nav class="tabs">
+      <button class="tab active" data-page="tasks">🔥 Задания</button>
+      <button class="tab" data-page="balance">💳 Баланс</button>
+      <button class="tab" data-page="ref">👥 Друзья</button>
+    </nav>
+
+    <main>
+      <section id="tasks" class="page active">
+        <div class="section-title">
+          <h2>Доступные задания</h2>
+          <button id="refreshTasks" class="small-btn">↻</button>
+        </div>
+        <div id="taskList" class="task-list"></div>
+      </section>
+
+      <section id="balance" class="page">
+        <div class="big-card">
+          <span>Доступно к выводу</span>
+          <strong id="balanceBig">0.00₽</strong>
+          <p>Минимальный вывод: 50₽</p>
+          <button class="primary-btn">Вывести</button>
+        </div>
+      </section>
+
+      <section id="ref" class="page">
+        <div class="big-card">
+          <span>Реферальная ссылка</span>
+          <strong>+10% с друзей</strong>
+          <p>Приглашай людей и получай бонус за их задания.</p>
+          <button id="copyRef" class="primary-btn">Скопировать ссылку</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <script src="/app.js"></script>
+</body>
+</html>
